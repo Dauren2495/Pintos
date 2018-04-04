@@ -100,7 +100,13 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-  };
+
+    /******* NEW VARIABLES *********/
+    struct thread *parent;
+    struct list children;
+    struct list_elem child_elem;    
+    /**********END OF NEW **********/
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

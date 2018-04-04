@@ -17,7 +17,8 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-
+#include "lib/string.h"
+#include <stdlib.h>
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -37,7 +38,6 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
@@ -72,8 +72,9 @@ start_process (void *file_name_)
      arguments on the stack in the form of a `struct intr_frame',
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
-  asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
-  NOT_REACHED ();
+
+   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
+   NOT_REACHED ();
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
@@ -88,7 +89,9 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+    while(1)
+	thread_yield();
+    return -1;
 }
 
 /* Free the current process's resources. */
@@ -97,7 +100,7 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
+  printf("in process exit\n");
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -114,6 +117,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+  printf("end of process exit\n");
 }
 
 /* Sets up the CPU for running user code in the current
@@ -214,12 +218,45 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
+  
+  /****************NEW LINES ***************/
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
+
+  
+  //moved stack initialization to the beginning
+  /* Set up stack. */
+  if (!setup_stack (esp))
+    goto done;
+  
+  char *word, *last;
+  int j = 0;
+  void *pointer[20]; // supports maximum 20 argumnets 
+  for(word = strtok_r(file_name, " ", &last); \
+      word != NULL;                           \
+      word = strtok_r(NULL, " ", &last)){
+    
+    *esp -= (sizeof(word) + 1);
+    strlcpy(*esp, word, sizeof(word) + 1);
+    pointer[j++] = *esp;
+  }
+  int argc = j;
+  size_t align = 4 + ((unsigned)*esp % 4); // +4 bytes for argv[argc]
+  *esp -= align;
+  memset(*esp, 0, align); // zero alignmnet bytes and set argv[argc] to NULL
+  unsigned *argv = *esp - 4;
+  while(j)
+    *argv-- = (unsigned)pointer[--j]; // save argv[] address onto the stack
+  *argv-- = argv+2;; // argv value
+  *argv-- = argc;  // argc value
+  *argv = 0; // dummy return address
+  *esp = (void*)argv; 
+    
+  /************ END OF NEW LINES ***********/
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -301,9 +338,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
-  /* Set up stack. */
-  if (!setup_stack (esp))
-    goto done;
+
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
