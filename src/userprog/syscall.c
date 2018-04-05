@@ -4,7 +4,9 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-
+#include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "filesys/inode.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -18,11 +20,10 @@ void is_bad_args(int *p, int argc){
   bool bad = false;
   struct thread *t  = thread_current();
   if(argc == 0){
-    void *esp = p;
-    if(esp >= PHYS_BASE)
+    if(p >= PHYS_BASE || p == NULL)
       bad = true;
     if(!bad)
-      if(!pagedir_get_page(t->pagedir, esp))
+      if(!pagedir_get_page(t->pagedir, p))
 	bad = true;
   }
   else if(argc == 1){
@@ -71,6 +72,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     int *p = f->esp;
     struct thread *t = thread_current();
     is_bad_args(p, 0);
+    //printf("In syscall handler\n");
     switch(*p){
     case SYS_HALT:
       break;
@@ -94,5 +96,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       else
 	;//writing to file
       break;
+    case SYS_OPEN:
+      is_bad_args(p, 1);
+      struct thread *t = thread_current();
+      const char **name = p + 1;
+      is_bad_args(*name, 0);
+      if(!filesys_open(*name))
+	f->eax = -1;
+      else
+	f->eax = t->next_fd++;
+      break; 
     }
+    //printf("End of syscall handler\n");
 }
