@@ -181,6 +181,11 @@ thread_create (const char *name, int priority,
 
   /* Initialize thread. */
   init_thread (t, name, priority);
+  
+  /************* NEW LINES ****************/
+  list_push_back(&thread_current()->children, &t->child_elem);
+  /************END OF NEW LINES ***********/
+
   tid = t->tid = allocate_tid ();
 
   /* Stack frame for kernel_thread(). */
@@ -263,7 +268,7 @@ thread_current (void)
      of stack, so a few big automatic arrays or moderate
      recursion can cause stack overflow. */
   ASSERT (is_thread (t));
-  //ASSERT (t->status == THREAD_RUNNING);
+  ASSERT (t->status == THREAD_RUNNING);
 
   return t;
 }
@@ -468,7 +473,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
   /*************** NEW LINES ************/
-  t->parent = thread_current();
+  t->dead = false;
   list_init(&t->children);
   /***********END OF NEW LINES ***********/
   

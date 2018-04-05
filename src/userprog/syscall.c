@@ -24,8 +24,9 @@ syscall_handler (struct intr_frame *f UNUSED)
             //halt(f);
             break;
         case SYS_EXIT:
-	    printf("in SYS_EXIT \n");
-            int *status = p + 1;
+	  //printf("in SYS_EXIT \n");
+	  ;
+	  int *status = p + 1;
             if(!pagedir_get_page(t->pagedir, status))
                 thread_exit();
 	    printf("%s: exit(%d)\n", t->name, *status);
@@ -33,8 +34,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	    thread_exit();
             break;
         case SYS_WRITE:
-	    printf("in SYS_WRITE \n");
-            int *fd = p + 1;
+	  //printf("in SYS_WRITE \n");
+	  ;
+	  int *fd = p + 1;
             const char **buffer = p + 2;
             unsigned *size = p + 3;
             if((!pagedir_get_page(t->pagedir, fd)) ||       \

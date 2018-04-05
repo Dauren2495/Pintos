@@ -102,7 +102,7 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
     /******* NEW VARIABLES *********/
-    struct thread *parent;
+    bool dead;
     struct list children;
     struct list_elem child_elem;    
     /**********END OF NEW **********/

@@ -39,6 +39,8 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
   /* Create a new thread to execute FILE_NAME. */
+  char *last;
+  strtok_r(file_name, " ", &last);
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
@@ -89,8 +91,23 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-    while(1)
-	thread_yield();
+  struct thread *t;
+  struct list_elem *e;
+  for( e = list_begin(&thread_current()->children); e != list_end(&thread_current()->children); e = list_next(e)){
+    t = list_entry(e, struct thread, child_elem);
+    if( t->tid == child_tid){
+      list_remove(e);
+      if(t->dead){
+	return -1;
+      }
+      else{
+	while(!t->dead)
+	  thread_yield();
+	return 0;
+      }
+    }
+  }
+  
     return -1;
 }
 
@@ -100,7 +117,7 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  printf("in process exit\n");
+  thread_current()->dead = true;
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -117,7 +134,6 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  printf("end of process exit\n");
 }
 
 /* Sets up the CPU for running user code in the current
@@ -240,8 +256,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
       word != NULL;                           \
       word = strtok_r(NULL, " ", &last)){
     
-    *esp -= (sizeof(word) + 1);
-    strlcpy(*esp, word, sizeof(word) + 1);
+    *esp -= (strlen(word) + 1);
+    strlcpy(*esp, word, strlen(word) + 1);
+    //printf("The word is: %s , The string saved on stack is: %s\n", word, *esp);
     pointer[j++] = *esp;
   }
   int argc = j;
