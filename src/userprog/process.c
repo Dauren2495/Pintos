@@ -40,7 +40,7 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
   /* Create a new thread to execute FILE_NAME. */
   char *last;
-  strtok_r(file_name, " ", &last);
+  strtok_r((char*)file_name, " ", &last);
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
@@ -252,7 +252,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   char *word, *last;
   int j = 0;
   void *pointer[20]; // supports maximum 20 argumnets 
-  for(word = strtok_r(file_name, " ", &last); \
+  for(word = strtok_r((char*)file_name, " ", &last);	\
       word != NULL;                           \
       word = strtok_r(NULL, " ", &last)){
     
@@ -268,7 +268,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   unsigned *argv = *esp - 4;
   while(j)
     *argv-- = (unsigned)pointer[--j]; // save argv[] address onto the stack
-  *argv-- = argv+2;; // argv value
+  *argv-- = (unsigned)(argv+2);; // argv value
   *argv-- = argc;  // argc value
   *argv = 0; // dummy return address
   *esp = (void*)argv; 

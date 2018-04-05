@@ -86,14 +86,15 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_WRITE:
       is_bad_args(p, 3);
       int *fd = p + 1;
-      const char **buffer = p + 2;
-      unsigned *size = p + 3;
+      const char **buffer = (const char **)(p + 2);
+      unsigned *size = (unsigned *)(p + 3);
       if(*fd == 0)
 	;//writing to stdin
       else if(*fd == 1)
 	putbuf(*buffer, *size);
-      else
+      else {
 	;//writing to file
+      }
       break;
         /*
 	case SYS_CREATE:
