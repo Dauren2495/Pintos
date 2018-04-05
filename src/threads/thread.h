@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "filesys/file.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -103,12 +104,27 @@ struct thread
 
     /******* NEW VARIABLES *********/
     int next_fd;
+    struct list files;
     int exit_status;
     bool dead;
     struct list children;
     struct list_elem child_elem;    
     /**********END OF NEW **********/
 };
+
+/********** NEW LINES **********/
+struct fd_{
+  int fd;
+  int file_ofs;
+  struct file *file;
+  struct list_elem elem;
+};
+
+
+
+
+
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

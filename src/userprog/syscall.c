@@ -9,6 +9,8 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "filesys/inode.h"
+#include "threads/malloc.h"
+#include "threads/init.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -66,6 +68,20 @@ void is_bad_args(int *p, int argc){
     
 }
 
+struct fd_ *search_fd(struct thread *t, int fd){
+    struct list_elem *e;
+    struct fd_ *file_d = NULL;
+    for( e = list_begin(&t->files); e != list_end(&t->files); e = list_next(e)){
+      file_d = list_entry(e, struct fd_, elem);
+      if(file_d->fd == fd)
+	break;
+    }
+    if(file_d == NULL || file_d->fd != fd)
+      return NULL;
+    else
+      return file_d;
+}
+
 
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
@@ -75,45 +91,153 @@ syscall_handler (struct intr_frame *f UNUSED)
     is_bad_args(p, 0);
     switch(*p){
     case SYS_HALT:
-      break;
-    case SYS_EXIT:
-      is_bad_args(p, 1);
-      int *status = p + 1;
-      f->eax = *status;
-      t->exit_status = *status;
-      thread_exit();
-      break;
-    case SYS_WRITE:
-      is_bad_args(p, 3);
-      int *fd = p + 1;
-      const char **buffer = (const char **)(p + 2);
-      unsigned *size = (unsigned *)(p + 3);
-      if(*fd == 0)
-	;//writing to stdin
-      else if(*fd == 1)
-	putbuf(*buffer, *size);
-      else {
-	;//writing to file
+      {
+	shutdown_power_off();
+	break;
       }
-      break;
+    case SYS_EXIT:
+      {
+	is_bad_args(p, 1);
+	int *status = p + 1;
+	f->eax = *status;
+	t->exit_status = *status;
+	thread_exit();
+	break;
+      }
+    case SYS_WRITE:
+      {
+	is_bad_args(p, 3);
+	int fd = *(p + 1);
+	const void **buffer = (p + 2);
+	is_bad_args(*buffer, 0);
+	unsigned size = *(p + 3);
+	if(fd == 0)
+	  ;//writing to stdin
+	else if(fd == 1){
+	  //if(size > 200){
+	  //  for(int i = 0; i < size;)
+	      
+	  putbuf(*buffer, size);
+	}
+	else {
+	  struct fd_* file_d = search_fd(t, fd);
+	  if(file_d != NULL){
+	    //if(file_d->file->deny_write)
+	    //  break;
+	    f->eax = file_write_at(file_d->file, *buffer, size, file_d->file_ofs);
+	  }
+	  else
+	    f->eax = -1;
+	}
+	break;
+      }
     case SYS_CREATE:
-      ;
-      const char** file = (const char**)(p+1);
-      unsigned initial_size = *(unsigned*)(p+2);
-      is_bad_args(p, 2);
-      is_bad_args(*file, 0);
-      f->eax = filesys_create(*file, initial_size);
-      break;
+      {
+	is_bad_args(p, 2);
+	const char** file = (const char**)(p+1);
+	unsigned initial_size = *(unsigned*)(p+2);
+	is_bad_args(*file, 0);
+	f->eax = filesys_create(*file, initial_size);
+	break;
+      }
     case SYS_OPEN:
-      is_bad_args(p, 1);
-      struct thread *t = thread_current();
-      const char **name = p + 1;
-      is_bad_args(*name, 0);
-      if(!filesys_open(*name))
-	f->eax = -1;
-      else
-	f->eax = t->next_fd++;
-      break; 
+      {
+	is_bad_args(p, 1);
+	const char **name = p + 1;
+	is_bad_args(*name, 0);
+	struct file *file = filesys_open(*name);
+	if(!file)
+	  f->eax = -1;
+	else{
+	  struct fd_* new_fd = calloc(1, sizeof(struct fd_));
+	  new_fd->fd = t->next_fd;
+	  new_fd->file = file;
+	  list_push_back(&t->files, &new_fd->elem);
+	  f->eax = t->next_fd++;
+	}
+	break;
+      }
+    case SYS_CLOSE:
+      {
+	is_bad_args(p, 1);
+	int fd = *(p + 1);
+	struct fd_* file_d = search_fd(t, fd);
+	if(file_d != NULL){
+	  list_remove(&file_d->elem);
+	  free(file_d);
+	}
+	break;
+      }
+
+    case SYS_FILESIZE:
+      {
+	is_bad_args(p, 1);
+	int fd = *(p + 1);
+	struct fd_* file_d = search_fd(t, fd);
+	if(file_d != NULL)
+	  f->eax = file_length(file_d->file);
+	else
+	  f->eax = 0;
+	break;
+      }
+    case SYS_READ:
+      {
+	is_bad_args(p, 3);
+	int fd = *(p + 1);
+	const void **buffer = p + 2;
+	unsigned size = *(p + 3);
+        is_bad_args(*buffer, 0);
+	if(fd == 0){
+	  f->eax = input_getc();
+	}
+	else{
+	  struct fd_ *file_d = search_fd(t, fd);
+	  if(file_d != NULL){
+	    f->eax = file_read_at(file_d->file, *buffer, size, file_d->file_ofs);
+	    file_d->file_ofs += f->eax;
+	  }
+	  else
+	    f->eax = -1;
+	  break;
+	}
+      }
+    case SYS_REMOVE:
+      {
+	is_bad_args(p, 1);
+	const char **file = p + 1;
+	is_bad_args(*file, 0);
+	f->eax = filesys_remove(*file);
+      }
+    case SYS_SEEK:
+      {
+	is_bad_args(p, 2);
+	int fd = *(p + 1);
+	unsigned pos = *(p + 2);
+	struct fd_* file_d = search_fd(t, fd);
+	if(file_d != NULL)
+	  file_d->file_ofs = pos;
+      }
+    case SYS_TELL:
+      {
+	is_bad_args(p, 1);
+	int fd = *(p + 1);
+	struct fd_* file_d = search_fd(t, fd);
+	if(file_d != NULL)
+	  f->eax = file_d->file_ofs;
+      }
+    case SYS_EXEC:
+      {
+	// dummy implemetation, still didn't implement synchronization
+	is_bad_args(p, 1);
+	const char **cmd_line = p + 1;
+	is_bad_args(*cmd_line, 0);
+	f->eax = process_execute(*cmd_line);
+      }
+    case SYS_WAIT:
+      {
+	is_bad_args(p, 1);
+	tid_t tid = *(p + 1);
+	f->eax = process_wait(tid);
+      }
     }
-    //printf("End of syscall handler\n");
 }

@@ -476,6 +476,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->next_fd = 2;
   t->dead = false;
   list_init(&t->children);
+  list_init(&t->files);
   /***********END OF NEW LINES ***********/
   
 }

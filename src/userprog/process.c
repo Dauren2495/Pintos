@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #include "lib/string.h"
 #include <stdlib.h>
 static thread_func start_process NO_RETURN;
@@ -119,6 +120,13 @@ process_exit (void)
   uint32_t *pd;
   /*NEW MANS*/
   printf("%s: exit(%d)\n", cur->name, cur->exit_status);
+  // remove all file descriptors
+  struct list_elem *e, *next;
+  for(e = list_begin(&cur->files); e!= list_end(&cur->files);){
+    next = list_remove(e);
+    free(list_entry(e, struct fd_, elem));
+    e = next;
+   }
   /*END NEW MANS*/
   thread_current()->dead = true;
   /* Destroy the current process's page directory and switch back
