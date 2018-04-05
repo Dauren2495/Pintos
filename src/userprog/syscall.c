@@ -3,6 +3,8 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "userprog/pagedir.h"
+#include "filesys/filesys.h"
 #include "threads/vaddr.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
@@ -58,7 +60,6 @@ void is_bad_args(int *p, int argc){
     }
   
   if(bad){
-    printf("%s: exit(%d)\n", t->name, -1);
     t->exit_status = -1;
     thread_exit();
   }
@@ -72,14 +73,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     int *p = f->esp;
     struct thread *t = thread_current();
     is_bad_args(p, 0);
-    //printf("In syscall handler\n");
     switch(*p){
     case SYS_HALT:
       break;
     case SYS_EXIT:
       is_bad_args(p, 1);
       int *status = p + 1;
-      printf("%s: exit(%d)\n", t->name, *status);
       f->eax = *status;
       t->exit_status = *status;
       thread_exit();
@@ -87,14 +86,23 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_WRITE:
       is_bad_args(p, 3);
       int *fd = p + 1;
-      const char **buffer = p + 2;
-      unsigned *size = p + 3;
+      const char **buffer = (const char **)(p + 2);
+      unsigned *size = (unsigned *)(p + 3);
       if(*fd == 0)
 	;//writing to stdin
       else if(*fd == 1)
 	putbuf(*buffer, *size);
-      else
+      else {
 	;//writing to file
+      }
+      break;
+    case SYS_CREATE:
+      ;
+      const char** file = (const char**)(p+1);
+      unsigned initial_size = *(unsigned*)(p+2);
+      is_bad_args(p, 2);
+      is_bad_args(*file, 0);
+      f->eax = filesys_create(*file, initial_size);
       break;
     case SYS_OPEN:
       is_bad_args(p, 1);
