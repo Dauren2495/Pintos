@@ -103,7 +103,7 @@ process_wait (tid_t child_tid UNUSED)
       else{
 	while(!t->dead)
 	  thread_yield();
-	return 0;
+	return t->exit_status;
       }
     }
   }
