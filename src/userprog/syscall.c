@@ -58,7 +58,7 @@ void is_bad_args(int *p, int argc){
     }
   
   if(bad){
-    printf("%s: exit(%d)\n", t->name, -1);
+    //printf("%s: exit(%d)\n", t->name, -1);
     t->exit_status = -1;
     thread_exit();
   }
@@ -78,7 +78,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXIT:
       is_bad_args(p, 1);
       int *status = p + 1;
-      printf("%s: exit(%d)\n", t->name, *status);
+      //remove because maybe better to print inside process_exit()
+      //printf("%s: exit(%d)\n", t->name, *status);
       f->eax = *status;
       t->exit_status = *status;
       thread_exit();
@@ -96,23 +97,30 @@ syscall_handler (struct intr_frame *f UNUSED)
 	;//writing to file
       }
       break;
-        /*
-	case SYS_CREATE:
-	  ;
-	  const char* file = (const char*)(p+1);
-	  unsigned* pinitial_size = (unsigned*)(p+2);
-	  bool success = false;
-	  if ( (!pagedir_get_page(t->pagedir, file)) || \
-	       (!pagedir_get_page(t->pagedir, pinitial_size))) {
-	    printf("Invalid argument supplied to SYS_CREATE\n");
-	    f->eax = success;
-	    thread_exit();
-	  }
-	  else {
-	    success = filesys_create(file, *pinitial_size);
-	    f->eax = success;
-	  }
-	  break;*/
-
+    case SYS_CREATE:
+      ;
+      const char** file = (const char**)(p+1);
+      //printf("\nBEFORE filesys_create, filename: %s\n");
+      unsigned initial_size = *(unsigned*)(p+2);
+      is_bad_args(p, 2);
+      bool success = filesys_create(*file, initial_size);
+      //printf("\nSUCCESS = %d\nfilename: %s\nsize: %d\n", success, *file, initial_size);
+      /*
+      if (!(*file)) {
+	printf("\nFILENAME == NULL\n");
+	success = false;
+      }
+      */
+      if (!success) {
+	//enum intr_level old_level = intr_disable();
+	//t->exit_status = 0;
+	f->eax = success;
+	//thread_exit();
+	//intr_set_level(old_level);
+      }
+      else {
+      f->eax = success;
+      }
+      break;
     }
 }
