@@ -3,6 +3,8 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "userprog/pagedir.h"
+#include "filesys/filesys.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -37,8 +39,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  //printf("in SYS_WRITE \n");
 	  ;
 	  int *fd = p + 1;
-            const char **buffer = p + 2;
-            unsigned *size = p + 3;
+	  const char **buffer = (const char**)(p + 2);
+	  unsigned *size = (unsigned *)(p + 3);
             if((!pagedir_get_page(t->pagedir, fd)) ||       \
                (!pagedir_get_page(t->pagedir, buffer)) ||   \
                (!pagedir_get_page(t->pagedir, size)))
@@ -47,11 +49,28 @@ syscall_handler (struct intr_frame *f UNUSED)
 		;//writing to stdin
             else if(*fd == 1)
 		putbuf(*buffer, *size);
-            else
+            else {
 		;//writing to file
+	    }
 	    break;
+	    /*
+	case SYS_CREATE:
+	  ;
+	  const char* file = (const char*)(p+1);
+	  unsigned* pinitial_size = (unsigned*)(p+2);
+	  bool success = false;
+	  if ( (!pagedir_get_page(t->pagedir, file)) || \
+	       (!pagedir_get_page(t->pagedir, pinitial_size))) {
+	    printf("Invalid argument supplied to SYS_CREATE\n");
+	    f->eax = success;
+	    thread_exit();
+	  }
+	  else {
+	    success = filesys_create(file, *pinitial_size);
+	    f->eax = success;
+	  }
+	  break;*/
         }
-
         //printf ("system call number is %d!\n", ((void*)f->esp + 4));
     }
     else
