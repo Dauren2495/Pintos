@@ -103,20 +103,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       //printf("\nBEFORE filesys_create, filename: %s\n");
       unsigned initial_size = *(unsigned*)(p+2);
       is_bad_args(p, 2);
+      if (*file == NULL) {
+	//printf("\nFILENAME is null\n");
+	t->exit_status = -1;
+	thread_exit();
+	break;
+      }      
       bool success = filesys_create(*file, initial_size);
       //printf("\nSUCCESS = %d\nfilename: %s\nsize: %d\n", success, *file, initial_size);
-      /*
-      if (!(*file)) {
-	printf("\nFILENAME == NULL\n");
-	success = false;
-      }
-      */
       if (!success) {
-	//enum intr_level old_level = intr_disable();
-	//t->exit_status = 0;
 	f->eax = success;
-	//thread_exit();
-	//intr_set_level(old_level);
       }
       else {
       f->eax = success;
