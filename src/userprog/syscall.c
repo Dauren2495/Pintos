@@ -12,6 +12,7 @@
 #include "threads/init.h"
 
 static void syscall_handler (struct intr_frame *);
+struct semaphore fs_sema;
 
 void
 syscall_init (void) 
@@ -82,7 +83,6 @@ struct fd_ *search_fd(struct thread *t, int fd){
       return file_d;
 }
 
-
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
@@ -123,7 +123,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	else {
 	  struct fd_* file_d = search_fd(t, fd);
 	  if(file_d != NULL){
-	    if(!file_d->file->deny_write)
+	    //if(file_d->file->inode->deny_write_cnt == 0)
 	      f->eax = file_write_at(file_d->file, *buffer, size, file_d->file_ofs);
 	  }
 	  else

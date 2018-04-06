@@ -9,7 +9,7 @@ struct inode;
 
 struct file
 {
-  struct indoe *inode;
+  struct inode *inode;
   off_t pos;
   bool deny_write;
 };

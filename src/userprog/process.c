@@ -128,8 +128,9 @@ process_exit (void)
 
   // allow to write on this file again
   struct file *file = filesys_open(cur->name);
+  if(file != NULL)
+    inode_allow_write(file->inode);
   file_close(file);
-  
   // remove all file descriptors
   struct list_elem *e, *next;
   for(e = list_begin(&cur->files); e!= list_end(&cur->files);){
@@ -304,7 +305,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
   /********** NEW LINES ***************/
-  file_deny_write(file);
+  inode_deny_write(file->inode);
   /**********END OF NEW LINES *********/
 
   /* Read and verify executable header. */
