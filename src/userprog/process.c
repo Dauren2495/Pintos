@@ -41,8 +41,11 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
   /* Create a new thread to execute FILE_NAME. */
   char *last;
-  strtok_r((char*)file_name, " ", &last);
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  char *name = calloc(1, strlen(file_name) + 1);
+  strlcpy(name, file_name, strlen(file_name) + 1);
+  strtok_r((char*)name, " ", &last);
+  tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
+  free(name);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -53,6 +56,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
+  //printf("Starting proceess %s\n", (char*)file_name_);
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -66,8 +70,9 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
+  if(!success)
+    thread_exit();
+  //printf("Successfully loaded user program\n");
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -99,17 +104,17 @@ process_wait (tid_t child_tid UNUSED)
     if( t->tid == child_tid){
       list_remove(e);
       if(t->dead){
-	return -1;
+	return t->exit_status;
       }
       else{
 	while(!t->dead)
 	  thread_yield();
 	return t->exit_status;
       }
+      palloc_free_page(t); // reap the child 
     }
   }
-  
-    return -1;
+  return -1;
 }
 
 /* Free the current process's resources. */
@@ -118,8 +123,8 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  /*NEW MANS*/
-  printf("%s: exit(%d)\n", cur->name, cur->exit_status);
+  //printf("%s: exit(%d)\n", cur->name, cur->exit_status); //if printed here exec will malfunction
+  
   // remove all file descriptors
   struct list_elem *e, *next;
   for(e = list_begin(&cur->files); e!= list_end(&cur->files);){
@@ -375,6 +380,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
+  if(!success){
+    t->exit_status = -1;
+    printf("%s: exit(%d)\n", t->name, t->exit_status);
+    t->parent->load_child = false;
+  }
+  sema_up(&t->parent->wait);
   file_close (file);
   return success;
 }

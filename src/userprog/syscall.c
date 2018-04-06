@@ -63,6 +63,7 @@ void is_bad_args(int *p, int argc){
   
   if(bad){
     t->exit_status = -1;
+    printf("%s: exit(%d)\n", t->name, t->exit_status);
     thread_exit();
   }
     
@@ -101,6 +102,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int *status = p + 1;
 	f->eax = *status;
 	t->exit_status = *status;
+	printf("%s: exit(%d)\n", t->name, t->exit_status);
 	thread_exit();
 	break;
       }
@@ -200,6 +202,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	    f->eax = -1;
 	  break;
 	}
+	break;
       }
     case SYS_REMOVE:
       {
@@ -207,6 +210,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const char **file = p + 1;
 	is_bad_args(*file, 0);
 	f->eax = filesys_remove(*file);
+	break;
       }
     case SYS_SEEK:
       {
@@ -216,6 +220,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	struct fd_* file_d = search_fd(t, fd);
 	if(file_d != NULL)
 	  file_d->file_ofs = pos;
+	break;
       }
     case SYS_TELL:
       {
@@ -224,6 +229,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	struct fd_* file_d = search_fd(t, fd);
 	if(file_d != NULL)
 	  f->eax = file_d->file_ofs;
+	break;
       }
     case SYS_EXEC:
       {
@@ -232,12 +238,21 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const char **cmd_line = p + 1;
 	is_bad_args(*cmd_line, 0);
 	f->eax = process_execute(*cmd_line);
+	sema_down(&t->wait);
+	if(!t->load_child){
+	  t->load_child = true;
+	  f->eax = -1;
+	}
+	break;
       }
     case SYS_WAIT:
       {
 	is_bad_args(p, 1);
-	tid_t tid = *(p + 1);
+	int tid = *(p + 1);
+	//printf("Process %s waits for tid %d\n",thread_current()->name, tid);
 	f->eax = process_wait(tid);
+	//printf("End of SYS_WAIT\n");
+	break;
       }
     }
 }

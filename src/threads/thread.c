@@ -290,14 +290,23 @@ thread_exit (void)
 #ifdef USERPROG
   process_exit ();
 #endif
-
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
   list_remove (&thread_current()->allelem);
-  thread_current ()->status = THREAD_DYING;
-  schedule ();
+
+  /***************** NEW LINES ***********************/
+#ifdef USERPROG  
+  thread_current()->status = THREAD_ZOMBIE; // status of userprogs which
+                                            // need to be reaped by their parents
+#else 
+  // change status of thread only if it is not user program
+  thread_current()->status = THREAD_DYING;
+#endif
+  /*********** END OF NEW LINES **********************/
+  
+  schedule();
   NOT_REACHED ();
 }
 
@@ -471,13 +480,16 @@ init_thread (struct thread *t, const char *name, int priority)
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
-  intr_set_level (old_level);
   /*************** NEW LINES ************/
+  sema_init(&t->wait, 0);
+  t->parent = running_thread();
+  t->load_child = true;
   t->next_fd = 2;
   t->dead = false;
   list_init(&t->children);
   list_init(&t->files);
   /***********END OF NEW LINES ***********/
+  intr_set_level (old_level);
   
 }
 

@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "filesys/file.h"
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -12,7 +13,9 @@ enum thread_status
     THREAD_RUNNING,     /* Running thread. */
     THREAD_READY,       /* Not running but ready to run. */
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-    THREAD_DYING        /* About to be destroyed. */
+    THREAD_DYING,        /* About to be destroyed. */
+    /****** NEW STATUS ************/
+    THREAD_ZOMBIE      /* Status of userprogs which need to be reaped by their parents */
   };
 
 /* Thread identifier type.
@@ -103,6 +106,9 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
     /******* NEW VARIABLES *********/
+    struct semaphore wait;
+    struct thread *parent;
+    bool load_child;
     int next_fd;
     struct list files;
     int exit_status;
