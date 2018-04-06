@@ -103,16 +103,12 @@ process_wait (tid_t child_tid UNUSED)
     t = list_entry(e, struct thread, child_elem);
     if( t->tid == child_tid){
       list_remove(e);
-      if(t->dead){
-	return t->exit_status;
-      }
-      else{
-	while(!t->dead)
-	  thread_yield();
-	return t->exit_status;
-      }
+      while(!t->dead)
+	thread_yield();
+      int exit = t->exit_status;
       ASSERT (t->status == THREAD_ZOMBIE);
-      palloc_free_page(t); // reap the child 
+      palloc_free_page(t); // reap the child
+      return exit;
     }
   }
   return -1;
@@ -138,6 +134,22 @@ process_exit (void)
     free(list_entry(e, struct fd_, elem));
     e = next;
    }
+  // reap all of its children
+  struct thread *child;
+  for(e = list_begin(&cur->children); e!= list_end(&cur->children);){
+    child = list_entry(e, struct thread, child_elem);
+    if(child->status == THREAD_ZOMBIE){
+      next = list_remove(e);
+      palloc_free_page(child);
+      e = next;
+    }
+    else
+      e = list_next(e);
+  }
+
+
+
+  
   /*END NEW MANS*/
   thread_current()->dead = true;
   /* Destroy the current process's page directory and switch back

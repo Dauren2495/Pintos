@@ -4,6 +4,9 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "userprog/pagedir.h"
+
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -140,7 +143,18 @@ page_fault (struct intr_frame *f)
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
   intr_enable ();
+  
+  /******** NEW LINES ***************/
+  if(fault_addr >= PHYS_BASE ||					\
+     pagedir_get_page(thread_current()->pagedir, fault_addr) == NULL){
+    printf("%s: exit(%d)\n", thread_current()->name, -1);
+    thread_current()->exit_status = -1;
+    thread_exit();
+  }
+  /*******END OF NEW LINES **********/
 
+
+  
   /* Count page faults. */
   page_fault_cnt++;
 

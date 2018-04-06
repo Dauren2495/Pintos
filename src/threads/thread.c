@@ -294,17 +294,22 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
+  struct thread *t = thread_current();
   intr_disable ();
-  list_remove (&thread_current()->allelem);
+  list_remove (&t->allelem);
 
   /***************** NEW LINES ***********************/
 #ifdef USERPROG  
-  thread_current()->status = THREAD_ZOMBIE; // status of userprogs which
+  t->status = THREAD_ZOMBIE;                // status of userprogs which
                                             // need to be reaped by their parents
 #else 
   // change status of thread only if it is not user program
-  thread_current()->status = THREAD_DYING;
+  t->status = THREAD_DYING;
 #endif
+
+  // Let the kernel kill userprog if its parent already exited
+  if( (t->parent == NULL) || (t->parent->status == THREAD_ZOMBIE))
+    t->status = THREAD_DYING; 
   /*********** END OF NEW LINES **********************/
   
   schedule();

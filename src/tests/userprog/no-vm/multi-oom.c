@@ -72,18 +72,23 @@ consume_some_resources_and_die (int seed)
   switch (random_ulong () % 5)
     {
       case 0:
+	printf("derefrence NULL\n");
         *(int *) NULL = 42;
 
       case 1:
+	printf("dereference NULL return\n"); 
         return *(int *) NULL;
 
       case 2:
+	printf("phys_base return\n");
         return *PHYS_BASE;
 
       case 3:
+	printf("phys_base dereference\n");
         *PHYS_BASE = 42;
 
-      case 4:
+    case 4:
+      printf("open case with PHYS_BASE\n");
         open ((char *)PHYS_BASE);
         exit (-1);
 
