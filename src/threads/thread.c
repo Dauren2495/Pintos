@@ -184,6 +184,7 @@ thread_create (const char *name, int priority,
   
   /************* NEW LINES ****************/
   list_push_back(&thread_current()->children, &t->child_elem);
+  
   /************END OF NEW LINES ***********/
 
   tid = t->tid = allocate_tid ();

@@ -2,8 +2,19 @@
 #define FILESYS_FILE_H
 
 #include "filesys/off_t.h"
+#include "filesys/inode.h"
+#include <stdint.h>
 
 struct inode;
+
+struct file
+{
+  struct indoe *inode;
+  off_t pos;
+  bool deny_write;
+};
+
+
 
 /* Opening and closing files. */
 struct file *file_open (struct inode *);

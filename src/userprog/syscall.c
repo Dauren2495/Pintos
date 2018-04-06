@@ -4,7 +4,6 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
-#include "filesys/filesys.h"
 #include "threads/vaddr.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
@@ -124,9 +123,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 	else {
 	  struct fd_* file_d = search_fd(t, fd);
 	  if(file_d != NULL){
-	    //if(file_d->file->deny_write)
-	    //  break;
-	    f->eax = file_write_at(file_d->file, *buffer, size, file_d->file_ofs);
+	    if(!file_d->file->deny_write)
+	      f->eax = file_write_at(file_d->file, *buffer, size, file_d->file_ofs);
 	  }
 	  else
 	    f->eax = -1;

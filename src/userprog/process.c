@@ -80,7 +80,7 @@ start_process (void *file_name_)
      arguments on the stack in the form of a `struct intr_frame',
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
-
+  
    asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
    NOT_REACHED ();
 }
@@ -111,6 +111,7 @@ process_wait (tid_t child_tid UNUSED)
 	  thread_yield();
 	return t->exit_status;
       }
+      ASSERT (t->status == THREAD_ZOMBIE);
       palloc_free_page(t); // reap the child 
     }
   }
@@ -124,6 +125,10 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
   //printf("%s: exit(%d)\n", cur->name, cur->exit_status); //if printed here exec will malfunction
+
+  // allow to write on this file again
+  struct file *file = filesys_open(cur->name);
+  file_close(file);
   
   // remove all file descriptors
   struct list_elem *e, *next;
@@ -298,6 +303,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+  /********** NEW LINES ***************/
+  file_deny_write(file);
+  /**********END OF NEW LINES *********/
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -386,7 +394,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
     t->parent->load_child = false;
   }
   sema_up(&t->parent->wait);
-  file_close (file);
+  //file_close (file);
+  
   return success;
 }
 

@@ -110,6 +110,7 @@ struct thread
     struct thread *parent;
     bool load_child;
     int next_fd;
+    struct file* file;
     struct list files;
     int exit_status;
     bool dead;
