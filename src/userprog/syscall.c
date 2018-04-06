@@ -10,6 +10,7 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 #include "threads/init.h"
+#include "threads/palloc.h"
 
 static void syscall_handler (struct intr_frame *);
 struct semaphore fs_sema;
@@ -122,10 +123,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 	}
 	else {
 	  struct fd_* file_d = search_fd(t, fd);
-	  if(file_d != NULL){
-	    //if(file_d->file->inode->deny_write_cnt == 0)
-	      f->eax = file_write_at(file_d->file, *buffer, size, file_d->file_ofs);
-	  }
+	  if(file_d != NULL)
+	      f->eax = file_write(file_d->file, *buffer, size);
 	  else
 	    f->eax = -1;
 	}
@@ -192,10 +191,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 	}
 	else{
 	  struct fd_ *file_d = search_fd(t, fd);
-	  if(file_d != NULL){
-	    f->eax = file_read_at(file_d->file, *buffer, size, file_d->file_ofs);
-	    file_d->file_ofs += f->eax;
-	  }
+	  if(file_d != NULL)
+	    f->eax = file_read(file_d->file, *buffer, size);
 	  else
 	    f->eax = -1;
 	  break;
@@ -217,7 +214,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	unsigned pos = *(p + 2);
 	struct fd_* file_d = search_fd(t, fd);
 	if(file_d != NULL)
-	  file_d->file_ofs = pos;
+	  file_d->file->pos = pos;
 	break;
       }
     case SYS_TELL:
@@ -226,7 +223,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int fd = *(p + 1);
 	struct fd_* file_d = search_fd(t, fd);
 	if(file_d != NULL)
-	  f->eax = file_d->file_ofs;
+	  f->eax = file_d->file->pos;
 	break;
       }
     case SYS_EXEC:

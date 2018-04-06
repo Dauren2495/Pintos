@@ -122,7 +122,6 @@ struct thread
 /********** NEW LINES **********/
 struct fd_{
   int fd;
-  int file_ofs;
   struct file *file;
   struct list_elem elem;
 };
