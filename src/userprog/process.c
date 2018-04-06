@@ -124,7 +124,7 @@ process_exit (void)
 
   // allow to write on this file again
   struct file *file = filesys_open(cur->name);
-  if(file != NULL)
+  if(file != NULL && file->inode->deny_write_cnt > 0)
     inode_allow_write(file->inode);
   file_close(file);
   // remove all file descriptors
