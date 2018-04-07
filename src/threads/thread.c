@@ -183,8 +183,13 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   
   /************* NEW LINES ****************/
-  list_push_back(&thread_current()->children, &t->child_elem);
-  
+   if(thread_current()->spawn_user){
+    thread_current()->spawn_user = false;
+    list_push_back(&thread_current()->children, &t->child_elem);
+    t->user = true;
+   }
+   else
+     printf("Created kernel thread\n"); 
   /************END OF NEW LINES ***********/
 
   tid = t->tid = allocate_tid ();
@@ -294,24 +299,55 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-  struct thread *t = thread_current();
+  struct thread *cur, *t = thread_current();
+  
+  cur = t;
+  // allow to write on this file again
+  struct file *file = filesys_open(cur->name);
+  if(file != NULL && file->inode->deny_write_cnt > 0)
+    inode_allow_write(file->inode);
+  file_close(file);
+
+  // remove all file descriptors
+  struct list_elem *e, *next;
+  struct fd_* file_d;
+  for(e = list_begin(&cur->files); e!= list_end(&cur->files);){
+    next = list_remove(e);
+    file_d = list_entry(e, struct fd_, elem);
+    file_close(file_d->file);
+    free(file_d);
+    e = next;
+   }
+
+  // reap all of its children
+  struct thread *child;
+  for(e = list_begin(&cur->children); e!= list_end(&cur->children);){
+    child = list_entry(e, struct thread, child_elem);
+    if(child->status == THREAD_ZOMBIE){
+      next = list_remove(e);
+      palloc_free_page(child);
+      e = next;
+    }
+    else
+      e = list_next(e);
+  }
+
   intr_disable ();
   list_remove (&t->allelem);
 
   /***************** NEW LINES ***********************/
-#ifdef USERPROG  
-  t->status = THREAD_ZOMBIE;                // status of userprogs which
-                                            // need to be reaped by their parents
-#else 
-  // change status of thread only if it is not user program
-  t->status = THREAD_DYING;
-#endif
-
+  if(t->user){
+    t->status = THREAD_ZOMBIE;  // status of userprogs which need to be reaped by their parents 
+    // printf("Changing status to Zombie\n");
+  }
+  else
+    t->status = THREAD_DYING;   // make its status dying only if it is not user program
+ 
   // Let the kernel kill userprog if its parent already exited
   if( (t->parent == NULL) || (t->parent->status == THREAD_ZOMBIE))
-    t->status = THREAD_DYING; 
+    {printf("Dead parent case\n");t->status = THREAD_DYING;} 
   /*********** END OF NEW LINES **********************/
-  
+  t->dead = true;
   schedule();
   NOT_REACHED ();
 }
@@ -487,6 +523,8 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   /*************** NEW LINES ************/
+  t->user = false;
+  t->spawn_user = false;
   sema_init(&t->wait, 0);
   t->parent = running_thread();
   t->load_child = true;

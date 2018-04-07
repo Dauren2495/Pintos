@@ -163,6 +163,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	struct fd_* file_d = search_fd(t, fd);
 	if(file_d != NULL){
 	  list_remove(&file_d->elem);
+	  file_close(file_d->file);
 	  free(file_d);
 	}
 	break;

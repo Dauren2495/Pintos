@@ -106,6 +106,8 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
     /******* NEW VARIABLES *********/
+    bool user;
+    bool spawn_user;
     struct semaphore wait;
     struct thread *parent;
     bool load_child;

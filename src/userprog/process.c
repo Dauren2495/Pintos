@@ -44,6 +44,7 @@ process_execute (const char *file_name)
   char *name = calloc(1, strlen(file_name) + 1);
   strlcpy(name, file_name, strlen(file_name) + 1);
   strtok_r((char*)name, " ", &last);
+  thread_current()->spawn_user = true;
   tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
   free(name);
   if (tid == TID_ERROR)
@@ -67,7 +68,6 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if(!success)
@@ -99,15 +99,18 @@ process_wait (tid_t child_tid UNUSED)
 {
   struct thread *t;
   struct list_elem *e;
+  //printf("Thread:%d waits for Child:%d\n",thread_current()->tid, child_tid);
   for( e = list_begin(&thread_current()->children); e != list_end(&thread_current()->children); e = list_next(e)){
     t = list_entry(e, struct thread, child_elem);
+    ASSERT(t->user);
     if( t->tid == child_tid){
       list_remove(e);
       while(!t->dead)
 	thread_yield();
       int exit = t->exit_status;
-      ASSERT (t->status == THREAD_ZOMBIE);
+      ASSERT(t->status == THREAD_ZOMBIE);
       palloc_free_page(t); // reap the child
+      //printf("Reaped the Child:%d\n", child_tid);
       return exit;
     }
   }
@@ -120,38 +123,9 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  //printf("%s: exit(%d)\n", cur->name, cur->exit_status); //if printed here exec will malfunction
 
-  // allow to write on this file again
-  struct file *file = filesys_open(cur->name);
-  if(file != NULL && file->inode->deny_write_cnt > 0)
-    inode_allow_write(file->inode);
-  file_close(file);
-  // remove all file descriptors
-  struct list_elem *e, *next;
-  for(e = list_begin(&cur->files); e!= list_end(&cur->files);){
-    next = list_remove(e);
-    free(list_entry(e, struct fd_, elem));
-    e = next;
-   }
-  // reap all of its children
-  struct thread *child;
-  for(e = list_begin(&cur->children); e!= list_end(&cur->children);){
-    child = list_entry(e, struct thread, child_elem);
-    if(child->status == THREAD_ZOMBIE){
-      next = list_remove(e);
-      palloc_free_page(child);
-      e = next;
-    }
-    else
-      e = list_next(e);
-  }
-
-
-
-  
   /*END NEW MANS*/
-  thread_current()->dead = true;
+  //thread_current()->dead = true;
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -273,15 +247,19 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  if (t->pagedir == NULL) 
+  if (t->pagedir == NULL){ 
+    printf("Couldn't create page directory\n");
     goto done;
+  }
   process_activate ();
 
   
   //moved stack initialization to the beginning
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp)){
+    printf("Couldn't setup stack\n");
     goto done;
+  }
   
   char *word, *last;
   int j = 0;
@@ -493,7 +471,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
+      uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
       if (kpage == NULL)
         return false;
 
