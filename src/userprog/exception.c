@@ -6,7 +6,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
-
+#include "threads/palloc.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -129,7 +130,6 @@ kill (struct intr_frame *f)
 static void
 page_fault (struct intr_frame *f) 
 {
-  printf("inside the page fault\n");
   bool not_present;  /* True: not-present page, false: writing r/o page. */
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
@@ -143,17 +143,47 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
+  //printf("Page fault at %x\n", fault_addr);
+ 
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
   intr_enable ();
   
   /******** NEW LINES ***************/
-  if(fault_addr >= PHYS_BASE ||					\
-     pagedir_get_page(thread_current()->pagedir, fault_addr) == NULL){
+  uint32_t addr = (uintptr_t) fault_addr & ~PGMASK;
+  struct page *p = page_lookup((uint8_t*) addr);
+  if(fault_addr >= PHYS_BASE && !p){
     printf("%s: exit(%d)\n", thread_current()->name, -1);
     thread_current()->exit_status = -1;
     thread_exit();
   }
+  if( p != NULL)
+    {
+    /* Get a page of memory. */
+      uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
+      if (kpage == NULL)
+        kill(f);
+
+      /* Load this page. */
+      if(p->file != NULL)
+	{
+	  file_seek(p->file, p->ofs);
+	  if (file_read (p->file, kpage, p->read_bytes) != (int) p->read_bytes)
+	    {
+	      palloc_free_page (kpage);
+	      kill(f); 
+	    }
+	}
+      memset (kpage + p->read_bytes, 0, p->zero_bytes);
+
+      /* Add the page to the process's address space. */
+      if (!pagedir_set_page(thread_current()->pagedir, (void*)p->addr, kpage,p->writable)) 
+        {
+          palloc_free_page (kpage);
+          kill(f); 
+	}
+      return;
+    }
   /*******END OF NEW LINES **********/
 
 

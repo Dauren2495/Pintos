@@ -11,6 +11,7 @@
 #include "threads/malloc.h"
 #include "threads/init.h"
 #include "threads/palloc.h"
+#include "vm/page.h"
 
 static void syscall_handler (struct intr_frame *);
 struct semaphore fs_sema;
@@ -21,6 +22,43 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+bool valid_byte(void *p){
+  struct thread *t = thread_current();
+  if(p >= PHYS_BASE || p == NULL)
+    return false;
+  if(!pagedir_get_page(t->pagedir,p) && !page_lookup(p))
+    return false;
+  return true;
+}
+
+void exit(void){
+  struct thread *t = thread_current();
+  t->exit_status = -1;
+  printf("%s: exit(%d)\n", t->name, t->exit_status);
+  thread_exit();
+}
+  
+
+void check_string(char *str){
+  if(!valid_byte(str))
+    exit();
+  for(int i = 0; i < strlen(str) + 1; i++)
+    if(!valid_byte(str + i)){
+      exit();
+    }
+}
+
+void check_buffer(void *buffer, size_t size){
+  for(int i = 0; i < size; i++)
+    if(!valid_byte(buffer + i))
+      exit();
+}
+
+void check_ptr(void *ptr){
+  check_buffer(ptr, 4);
+}
+    
+  
 void is_bad_args(int *p, int argc){
   bool bad = false;
   struct thread *t  = thread_current();
@@ -55,6 +93,7 @@ void is_bad_args(int *p, int argc){
     void *arg3 = p + 3;
     if(arg1 >= PHYS_BASE || arg2 >= PHYS_BASE || arg3 >= PHYS_BASE)
       bad = true;
+    
     if(!bad)
       if(!pagedir_get_page(t->pagedir, arg1) || \
 	 !pagedir_get_page(t->pagedir, arg2) || \
@@ -89,7 +128,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
     int *p = f->esp;
     struct thread *t = thread_current();
-    is_bad_args(p, 0);
+    check_ptr(f->esp);
     switch(*p){
     case SYS_HALT:
       {
@@ -98,7 +137,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
     case SYS_EXIT:
       {
-	is_bad_args(p, 1);
+	check_ptr(p + 1);
 	int *status = p + 1;
 	f->eax = *status;
 	t->exit_status = *status;
@@ -108,17 +147,17 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
     case SYS_WRITE:
       {
-	is_bad_args(p, 3);
+	check_ptr(p + 1);
+	check_ptr(p + 2);
+	check_ptr(p + 3);
 	int fd = *(p + 1);
 	const void **buffer = (p + 2);
-	is_bad_args(*buffer, 0);
 	unsigned size = *(p + 3);
+	check_buffer(*buffer, size);
+	
 	if(fd == 0)
 	  ;//writing to stdin
-	else if(fd == 1){
-	  //if(size > 200){
-	  //  for(int i = 0; i < size;)
-	      
+	else if(fd == 1){    
 	  putbuf(*buffer, size);
 	}
 	else {
@@ -132,18 +171,19 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
     case SYS_CREATE:
       {
-	is_bad_args(p, 2);
+	check_ptr(p + 1);
+	check_ptr(p + 2);
 	const char** file = (const char**)(p+1);
 	unsigned initial_size = *(unsigned*)(p+2);
-	is_bad_args(*file, 0);
+	check_string(*file);
 	f->eax = filesys_create(*file, initial_size);
 	break;
       }
     case SYS_OPEN:
       {
-	is_bad_args(p, 1);
+	check_ptr(p + 1);
 	const char **name = p + 1;
-	is_bad_args(*name, 0);
+	check_string(*name);
 	struct file *file = filesys_open(*name);
 	if(!file)
 	  f->eax = -1;
@@ -158,7 +198,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
     case SYS_CLOSE:
       {
-	is_bad_args(p, 1);
+	check_ptr(p + 1);
 	int fd = *(p + 1);
 	struct fd_* file_d = search_fd(t, fd);
 	if(file_d != NULL){
@@ -171,7 +211,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_FILESIZE:
       {
-	is_bad_args(p, 1);
+	check_ptr(p + 1);
 	int fd = *(p + 1);
 	struct fd_* file_d = search_fd(t, fd);
 	if(file_d != NULL)
@@ -182,11 +222,13 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
     case SYS_READ:
       {
-	is_bad_args(p, 3);
+	check_ptr(p + 1);
+	check_ptr(p + 2);
+	check_ptr(p + 3);
 	int fd = *(p + 1);
 	const void **buffer = p + 2;
 	unsigned size = *(p + 3);
-        is_bad_args(*buffer, 0);
+	check_buffer(*buffer, size);
 	if(fd == 0){
 	  f->eax = input_getc();
 	}
@@ -202,15 +244,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
     case SYS_REMOVE:
       {
-	is_bad_args(p, 1);
+	check_ptr(p + 1);
 	const char **file = p + 1;
-	is_bad_args(*file, 0);
+	check_string(*file);
 	f->eax = filesys_remove(*file);
 	break;
       }
     case SYS_SEEK:
       {
-	is_bad_args(p, 2);
+	check_ptr(p + 1);
+	check_ptr(p + 2);
 	int fd = *(p + 1);
 	unsigned pos = *(p + 2);
 	struct fd_* file_d = search_fd(t, fd);
@@ -220,7 +263,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
     case SYS_TELL:
       {
-	is_bad_args(p, 1);
+	check_ptr(p + 1);
 	int fd = *(p + 1);
 	struct fd_* file_d = search_fd(t, fd);
 	if(file_d != NULL)
@@ -230,9 +273,9 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXEC:
       {
 	// dummy implemetation, still didn't implement synchronization
-	is_bad_args(p, 1);
+	check_ptr(p + 1);
 	const char **cmd_line = p + 1;
-	is_bad_args(*cmd_line, 0);
+	check_string(*cmd_line);
 	f->eax = process_execute(*cmd_line);
 	sema_down(&t->wait);
 	if(!t->load_child){
@@ -243,7 +286,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
     case SYS_WAIT:
       {
-	is_bad_args(p, 1);
+	check_ptr(p + 1);
 	int tid = *(p + 1);
 	//printf("Process %s waits for tid %d\n",thread_current()->name, tid);
 	f->eax = process_wait(tid);

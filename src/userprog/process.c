@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <hash.h>
+#include "vm/page.h"
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -20,15 +22,8 @@
 #include "threads/malloc.h"
 #include "lib/string.h"
 #include <stdlib.h>
-#include "vm/page.h"
-#include "vm/frame.h"
-
-
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-
-struct hash pages;
-
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -149,6 +144,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+  hash_destroy(&cur->pages, page_free);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -235,6 +231,10 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
+static bool load_segment_modified (struct file *file, off_t ofs, uint8_t *upage,
+                          uint32_t read_bytes, uint32_t zero_bytes,
+                          bool writable);
+
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -252,7 +252,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   
   /****************NEW LINES ***************/
 
-  printf("Inside load()\n");
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL){ 
@@ -288,7 +287,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   unsigned *argv = *esp - 4;
   while(j)
     *argv-- = (unsigned)pointer[--j]; // save argv[] address onto the stack
-  *argv-- = (unsigned)(argv+2);; // argv value
+  *argv-- = (unsigned)(argv+2); // argv value
   *argv-- = argc;  // argc value
   *argv = 0; // dummy return address
   *esp = (void*)argv; 
@@ -297,7 +296,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (file_name);
-  hash_init(&pages, page_hash, page_less, NULL);
+  hash_init(&t->pages, page_hash, page_less, NULL);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -350,9 +349,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
           if (validate_segment (&phdr, file)) 
             {
               bool writable = (phdr.p_flags & PF_W) != 0;
-	      printf("p_offset is %d and p_vaddr is %x\n", phdr.p_offset, phdr.p_vaddr);
-	      printf("p_filesz is %d and p_memsz is %d\n", phdr.p_filesz, phdr.p_memsz);
-	      uint32_t file_page = phdr.p_offset & ~PGMASK;
+              uint32_t file_page = phdr.p_offset & ~PGMASK;
               uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
               uint32_t page_offset = phdr.p_vaddr & PGMASK;
               uint32_t read_bytes, zero_bytes;
@@ -371,7 +368,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!load_segment (file, file_page, (void *) mem_page,
+              if (!load_segment_modified (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
             }
@@ -472,23 +469,21 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
-  printf("Loading segment from executable\n");
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
-      printf("one full page read\n");
-      //   Calculate how to fill this page.
-      //   We will read PAGE_READ_BYTES bytes from FILE
-      //   and zero the final PAGE_ZERO_BYTES bytes.
+      /* Calculate how to fill this page.
+         We will read PAGE_READ_BYTES bytes from FILE
+         and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      // Get a page of memory. 
+      /* Get a page of memory. */
       uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
       if (kpage == NULL)
         return false;
 
-      // Load this page. 
+      /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
           palloc_free_page (kpage);
@@ -496,14 +491,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
-      // Add the page to the process's address space. 
+      /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 
         {
           palloc_free_page (kpage);
           return false; 
         }
 
-      // Advance. 
+      /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
@@ -519,11 +514,11 @@ load_segment_modified (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
-  printf("Loading segment from executable\n");
+  //printf("Loading segment from executable\n");
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
-      printf("one full page read\n");
+      //printf("one full page read at upage %x\n", upage);
       //   Calculate how to fill this page.
       //   We will read PAGE_READ_BYTES bytes from FILE
       //   and zero the final PAGE_ZERO_BYTES bytes.
@@ -531,24 +526,26 @@ load_segment_modified (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       struct page *p = calloc(sizeof(struct page), 1);
-      p->file = file;
+      if(page_read_bytes == 0)
+	p->file = NULL;
+      else
+	p->file = file;
       p->ofs = ofs;
       p->addr = upage;
       p->read_bytes = page_read_bytes;
       p->zero_bytes = page_zero_bytes;
       p->writable = writable;
 
-      hash_insert(&pages, &p->hash_elem);
+      hash_insert(&thread_current()->pages, &p->hash_elem);
       
       // Advance. 
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
+      ofs += page_read_bytes;
     }
   return true;
 }
-
-
 
 
 /* Create a minimal stack by mapping a zeroed page at the top of

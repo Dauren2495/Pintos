@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "filesys/file.h"
 #include "threads/synch.h"
+#include <hash.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -117,7 +118,8 @@ struct thread
     int exit_status;
     bool dead;
     struct list children;
-    struct list_elem child_elem;    
+    struct list_elem child_elem;
+    struct hash pages;
     /**********END OF NEW **********/
 };
 
