@@ -87,7 +87,6 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
   pt = pde_get_pt (*pde);
   return &pt[pt_no (vaddr)];
 }
-
 /* Adds a mapping in page directory PD from user virtual page
    UPAGE to the physical frame identified by kernel virtual
    address KPAGE.
@@ -113,8 +112,7 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
     hash_init(&frames, frame_hash, frame_less, NULL);
     f_start = true;
   }
-  pte = lookup_page (pd, upage, true);
-  printf("value of *pte is %x\n", *pte); 
+  pte = lookup_page (pd, upage, true); 
   if (pte != NULL) 
     {
       ASSERT ((*pte & PTE_P) == 0);

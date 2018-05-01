@@ -143,16 +143,38 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
-  printf("-------------------------------------Page fault at %x\n", fault_addr);
+  //printf("-------------------------------------Page fault at %x\n", fault_addr);
  
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
   intr_enable ();
   
   /******** NEW LINES ***************/
+   /* Count page faults. */
+  page_fault_cnt++;
+
+  /* Determine cause. */
+  not_present = (f->error_code & PF_P) == 0;
+  write = (f->error_code & PF_W) != 0;
+  user = (f->error_code & PF_U) != 0;
+ 
   uint32_t addr = (uintptr_t) fault_addr & ~PGMASK;
+
+  if(f->esp > fault_addr && ((unsigned)(f->esp - fault_addr) < 4096))
+    {
+      uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
+      if (kpage == NULL)
+        kill(f);
+      if (!pagedir_set_page(thread_current()->pagedir, (void*) addr, kpage, write)) 
+        {
+          palloc_free_page (kpage);
+          kill(f); 
+	}
+      return;
+    }
+  
   struct page *p = page_lookup((uint8_t*) addr);
-  if((fault_addr >= PHYS_BASE && !p) || (write && !p->writable)){
+  if( !p || (user && fault_addr >= PHYS_BASE)  || (write && !p->writable)){
     printf("%s: exit(%d)\n", thread_current()->name, -1);
     thread_current()->exit_status = -1;
     thread_exit();
@@ -186,41 +208,20 @@ page_fault (struct intr_frame *f)
       return;
     }
   
-  if(f->esp > fault_addr)
-    {
-      uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
-      if (kpage == NULL)
-        kill(f);
-      uint32_t addr = ((uintptr_t) fault_addr & ~PGMASK);
-      void *up = (void*)addr;
-      if (!pagedir_set_page(thread_current()->pagedir, up, kpage, write)) 
-        {
-          palloc_free_page (kpage);
-          kill(f); 
-	}
-      return;
-     
-    }
   /*******END OF NEW LINES **********/
 
 
+  /*
   
-  /* Count page faults. */
-  page_fault_cnt++;
-
-  /* Determine cause. */
-  not_present = (f->error_code & PF_P) == 0;
-  write = (f->error_code & PF_W) != 0;
-  user = (f->error_code & PF_U) != 0;
-  
-  /* To implement virtual memory, delete the rest of the function
+   To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
-     which fault_addr refers. */
+     which fault_addr refers. 
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  kill (f);
+	  kill (f);*/
+  
 }
 
