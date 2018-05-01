@@ -1,6 +1,7 @@
 #include "vm/page.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "vm/frame.h"
 
 unsigned page_hash(const struct hash_elem *e, void* aux)
 {
@@ -28,6 +29,7 @@ struct page* page_lookup(const uint8_t *addr)
   e = hash_find(&thread_current()->pages, &p.hash_elem);
   return e != NULL ? hash_entry(e, struct page, hash_elem) : NULL;
 }
+
 void print_all_pages(const struct hash *hash)
 {
   struct hash_iterator i;
@@ -36,5 +38,21 @@ void print_all_pages(const struct hash *hash)
   while(hash_next(&i)){
     struct page *p = hash_entry(hash_cur(&i), struct page, hash_elem);
     printf("Element %d with address %x\n", ++j, p->addr);
+  }
+}
+
+void remove_frames(const struct hash *pages, const struct hash *frames)
+{
+  struct hash_iterator i;
+  int j = 0;
+  hash_first(&i, pages);
+  while(hash_next(&i)){
+    struct page *p = hash_entry(hash_cur(&i), struct page, hash_elem);
+    struct frame *f = frame_lookup(frames, p->kpage);
+    if(f != NULL){
+      //printf("Removing Frame\n");
+      hash_delete(frames, &f->hash_elem);
+      free(f);
+    }
   }
 }

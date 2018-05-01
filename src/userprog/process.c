@@ -24,6 +24,7 @@
 #include <stdlib.h>
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+extern struct hash frames;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -144,6 +145,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+  //remove_frames(&cur->pages, &frames);
   hash_destroy(&cur->pages, page_free);
 }
 
@@ -535,7 +537,8 @@ load_segment_modified (struct file *file, off_t ofs, uint8_t *upage,
       p->read_bytes = page_read_bytes;
       p->zero_bytes = page_zero_bytes;
       p->writable = writable;
-
+      p->kpage = NULL;
+      
       hash_insert(&thread_current()->pages, &p->hash_elem);
       
       // Advance. 

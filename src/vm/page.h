@@ -4,6 +4,7 @@
 
 struct page{
   struct hash_elem hash_elem;
+  uint8_t* kpage;
   uint8_t* addr;
   struct file *file;
   off_t ofs;
@@ -17,6 +18,7 @@ unsigned page_hash(const struct hash_elem *e, void* aux);
 bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 void page_free(const struct hash_elem *e, void *aux);
 struct page* page_lookup(const uint8_t *addr);
-void print_all(const struct hash *hash);
+void print_all_pages(const struct hash *hash);
+void remove_frames(const struct hash *pages, const struct hash *frames);
 
   

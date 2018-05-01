@@ -1,4 +1,5 @@
 #include "threads/thread.h"
+#include "vm/frame.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -92,7 +93,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-
+  
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -300,7 +301,8 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   struct thread *cur, *t = thread_current();
-  
+
+ 
   cur = t;
   // allow to write on this file again
   struct file *file = filesys_open(cur->name);

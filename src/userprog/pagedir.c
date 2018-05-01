@@ -5,9 +5,12 @@
 #include "threads/init.h"
 #include "threads/pte.h"
 #include "threads/palloc.h"
+#include "vm/frame.h"
 
 static uint32_t *active_pd (void);
 static void invalidate_pagedir (uint32_t *);
+struct hash frames;
+bool f_start = false;
 
 /* Creates a new page directory that has mappings for kernel
    virtual addresses, but none for user virtual addresses.
@@ -106,12 +109,21 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
   ASSERT (vtop (kpage) >> PTSHIFT < init_ram_pages);
   ASSERT (pd != init_page_dir);
 
+  if(!f_start){
+    hash_init(&frames, frame_hash, frame_less, NULL);
+    f_start = true;
+  }
   pte = lookup_page (pd, upage, true);
-
+  printf("value of *pte is %x\n", *pte); 
   if (pte != NULL) 
     {
       ASSERT ((*pte & PTE_P) == 0);
       *pte = pte_create_user (kpage, writable);
+      struct frame *f = calloc(sizeof(struct frame), 1);
+      f->pd = pd;
+      f->upage = upage;
+      f->addr = (uint8_t*) kpage;
+      hash_insert(&frames, &f->hash_elem);
       return true;
     }
   else

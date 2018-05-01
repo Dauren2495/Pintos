@@ -10,6 +10,10 @@
 #include "threads/loader.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "vm/frame.h"
+
+extern struct hash frames;
+
 
 /* Page allocator.  Hands out memory in page-size (or
    page-multiple) chunks.  See malloc.h for an allocator that
@@ -119,15 +123,27 @@ palloc_free_multiple (void *pages, size_t page_cnt)
 {
   struct pool *pool;
   size_t page_idx;
-
   ASSERT (pg_ofs (pages) == 0);
   if (pages == NULL || page_cnt == 0)
     return;
 
   if (page_from_pool (&kernel_pool, pages))
     pool = &kernel_pool;
-  else if (page_from_pool (&user_pool, pages))
+  else if (page_from_pool (&user_pool, pages)){
     pool = &user_pool;
+    uint8_t *page = (uint8_t *)pages;
+    /************* NEW LINES **************/
+    for(int j = 0; j < page_cnt; j++){
+      //printf("Page Deletetd\n");
+      page += j*PGSIZE;
+      struct frame *f = frame_lookup(&frames, page);
+      if(f != NULL){
+	hash_delete(&frames, &f->hash_elem);
+	free(f);
+	}
+    }
+    /********** END OF NEW LINES **********/
+  }
   else
     NOT_REACHED ();
 
