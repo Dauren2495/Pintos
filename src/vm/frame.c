@@ -65,14 +65,17 @@ void print_clock_list(struct list *list)
 void *frame_evict(struct list *list, int page_cnt)
 {
   struct list_elem *e;
-  struct frame *f = list_entry(list_begin(list), struct frame, list_elem);
+  struct frame *f = list_entry(list_rbegin(list), struct frame, list_elem);
   list_remove(&f->list_elem);
-  printf("Evicting Page %x\n", f->upage);
-  if(pagedir_is_dirty(f->pd, f->upage)){
-    printf("writing to  swap\n");
+  uint32_t *pte = lookup_page(f->pd, f->upage, false);
+  //printf("Evicting Page %x\n", f->upage);
+  if(*pte & PTE_D){
+    //printf("writing to  swap\n");
     swap_write(&swap, f->upage);
   }
-  /*for(e = list_begin(list); e != list_end(list); e = list_next(e))
+  if(pte != NULL)
+    *pte = 0;
+ /*for(e = list_begin(list); e != list_end(list); e = list_next(e))
   {
     f  = list_entry(e, struct frame, list_elem);
     uint32_t *pte = lookup_page(f->pd, f->upage, false);

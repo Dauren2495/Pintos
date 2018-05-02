@@ -147,7 +147,7 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
-  printf("-------------------------------------Page fault at %x\n", fault_addr);
+  //printf("-------------------------------------Page fault at %x\n", fault_addr);
  
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
@@ -164,7 +164,7 @@ page_fault (struct intr_frame *f)
 
   void* stack_limit = (unsigned)PHYS_BASE - 1028*1028;
   uint32_t addr = (uintptr_t) fault_addr & ~PGMASK;
-
+  
   if((unsigned)(f->esp - fault_addr) < 4096 && PHYS_BASE > fault_addr && fault_addr > stack_limit)
     {
       uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
@@ -196,13 +196,13 @@ page_fault (struct intr_frame *f)
   
   struct page *p = page_lookup((uint8_t*) addr);
   if( !p || (user && fault_addr >= PHYS_BASE)  || (write && !p->writable)){
-    // printf("Exception exit\n");
+    //printf("Exception exit %x\n", p);
     printf("%s: exit(%d)\n", thread_current()->name, -1);
     thread_current()->exit_status = -1;
     thread_exit();
   }
   else{
-    printf("Get page\n");
+    //printf("Get page\n");
     /* Get a page of memory. */
     uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO);
     if (kpage == NULL)
@@ -212,10 +212,11 @@ page_fault (struct intr_frame *f)
     /* Load this page. */
     if(p->swap){
       swap_read(&swap, p);
-      printf("Reading from swap\n");
+      //printf("Reading from swap\n");
     }
     else if(p->file != NULL)
       {
+	//printf("file not null\n");
 	file_seek(p->file, p->ofs);
 	if (file_read (p->file, kpage, p->read_bytes) != (int) p->read_bytes)
 	  {
