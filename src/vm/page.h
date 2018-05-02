@@ -1,9 +1,13 @@
+#ifndef PAGE_H
+#define PAGE_H
+
 #include <hash.h>
 #include "filesys/file.h"
 #include "threads/malloc.h"
 
 struct page{
   struct hash_elem hash_elem;
+  bool swap;
   uint8_t* kpage;
   uint8_t* addr;
   struct file *file;
@@ -20,5 +24,7 @@ void page_free(const struct hash_elem *e, void *aux);
 struct page* page_lookup(const uint8_t *addr);
 void print_all_pages(const struct hash *hash);
 void remove_frames(const struct hash *pages, const struct hash *frames);
+
+#endif
 
   

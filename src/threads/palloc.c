@@ -13,7 +13,7 @@
 #include "vm/frame.h"
 
 extern struct hash frames;
-
+extern struct list clock;
 
 /* Page allocator.  Hands out memory in page-size (or
    page-multiple) chunks.  See malloc.h for an allocator that
@@ -97,10 +97,12 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     }
   else 
     {
+      pages = frame_evict(&clock, page_cnt);
+      //printf("Got page %x page_cnt %d\n", pages, page_cnt);
+      memset(pages, 0, PGSIZE * page_cnt);
       if (flags & PAL_ASSERT)
         PANIC ("palloc_get: out of pages");
     }
-
   return pages;
 }
 
@@ -131,8 +133,8 @@ palloc_free_multiple (void *pages, size_t page_cnt)
     pool = &kernel_pool;
   else if (page_from_pool (&user_pool, pages)){
     pool = &user_pool;
+     /************* NEW LINES **************/
     uint8_t *page = (uint8_t *)pages;
-    /************* NEW LINES **************/
     for(int j = 0; j < page_cnt; j++){
       //printf("Page Deletetd\n");
       page += j*PGSIZE;
@@ -153,7 +155,7 @@ palloc_free_multiple (void *pages, size_t page_cnt)
   memset (pages, 0xcc, PGSIZE * page_cnt);
 #endif
 
-  ASSERT (bitmap_all (pool->used_map, page_idx, page_cnt));
+  //ASSERT (bitmap_all (pool->used_map, page_idx, page_cnt));
   bitmap_set_multiple (pool->used_map, page_idx, page_cnt, false);
 }
 

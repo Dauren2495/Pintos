@@ -8,7 +8,10 @@
 #include "userprog/pagedir.h"
 #include "threads/palloc.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 #include "threads/pte.h"
+
+extern struct swap swap;
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -144,7 +147,7 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
-  //printf("-------------------------------------Page fault at %x\n", fault_addr);
+  printf("-------------------------------------Page fault at %x\n", fault_addr);
  
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
@@ -193,19 +196,25 @@ page_fault (struct intr_frame *f)
   
   struct page *p = page_lookup((uint8_t*) addr);
   if( !p || (user && fault_addr >= PHYS_BASE)  || (write && !p->writable)){
+    // printf("Exception exit\n");
     printf("%s: exit(%d)\n", thread_current()->name, -1);
     thread_current()->exit_status = -1;
     thread_exit();
   }
   else{
-    //printf("Got page\n");
+    printf("Get page\n");
     /* Get a page of memory. */
-    uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
+    uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO);
     if (kpage == NULL)
       kill(f);
-    
+
+    p->kpage = kpage;
     /* Load this page. */
-    if(p->file != NULL)
+    if(p->swap){
+      swap_read(&swap, p);
+      printf("Reading from swap\n");
+    }
+    else if(p->file != NULL)
       {
 	file_seek(p->file, p->ofs);
 	if (file_read (p->file, kpage, p->read_bytes) != (int) p->read_bytes)
@@ -213,8 +222,11 @@ page_fault (struct intr_frame *f)
 	    palloc_free_page (kpage);
 	    kill(f); 
 	  }
+	memset (kpage + p->read_bytes, 0, p->zero_bytes);
       }
-    memset (kpage + p->read_bytes, 0, p->zero_bytes);
+    else
+      memset (kpage + p->read_bytes, 0, p->zero_bytes);
+    
     
     /* Add the page to the process's address space. */
     if (!pagedir_set_page(thread_current()->pagedir, (void*)p->addr, kpage,p->writable)) 
@@ -222,7 +234,6 @@ page_fault (struct intr_frame *f)
 	palloc_free_page (kpage);
 	kill(f); 
       }
-    p->kpage = kpage;
     return;
   }
   
