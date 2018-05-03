@@ -147,7 +147,7 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
-  //printf("-------------------------------------Page fault at %x\n", fault_addr);
+  printf("-------------------------------------Page fault at %x\n", fault_addr);
  
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
@@ -197,6 +197,7 @@ page_fault (struct intr_frame *f)
 	  palloc_free_page (kpage);
 	  kill(f); 
 	}
+      //free(p);
       return;
     }
   else if((unsigned)(f->esp - fault_addr) < 4096 && PHYS_BASE > fault_addr && fault_addr > stack_end)
@@ -223,6 +224,8 @@ page_fault (struct intr_frame *f)
 	  hash_insert(&t->pages, &p->hash_elem);
 	  upage += PGSIZE;
 	}
+      //if(p)
+      //free(p);
       return;
     }
   else

@@ -22,10 +22,12 @@
 #include "threads/malloc.h"
 #include "lib/string.h"
 #include <stdlib.h>
+#include "vm/swap.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 extern struct hash frames;
-extern struct list clock;
+extern struct swap swap;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -133,7 +135,6 @@ process_exit (void)
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
-  //print_clock_list(&clock);
   if (pd != NULL) 
     {
       /* Correct ordering here is crucial.  We must set
@@ -147,7 +148,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  //remove_frames(&cur->pages, &frames);
+  //swap_remove(&swap, &cur->pages);
   hash_destroy(&cur->pages, page_free);
 }
 
