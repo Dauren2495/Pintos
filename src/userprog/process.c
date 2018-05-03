@@ -535,7 +535,7 @@ load_segment_modified (struct file *file, off_t ofs, uint8_t *upage,
       else
 	p->file = file;
       p->ofs = ofs;
-      p->addr = upage;
+      p->upage = upage;
       p->read_bytes = page_read_bytes;
       p->zero_bytes = page_zero_bytes;
       p->writable = writable;

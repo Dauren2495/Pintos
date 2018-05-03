@@ -9,7 +9,7 @@ struct page{
   struct hash_elem hash_elem;
   bool swap;
   uint8_t* kpage;
-  uint8_t* addr;
+  uint8_t* upage;
   struct file *file;
   off_t ofs;
   uint32_t read_bytes;
@@ -18,12 +18,12 @@ struct page{
 };
 
 
-unsigned page_hash(const struct hash_elem *e, void* aux);
-bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
-void page_free(const struct hash_elem *e, void *aux);
-struct page* page_lookup(const uint8_t *addr);
-void print_all_pages(const struct hash *hash);
-void remove_frames(const struct hash *pages, const struct hash *frames);
+unsigned page_hash(const struct hash_elem *, void*);
+bool page_less(const struct hash_elem *, const struct hash_elem *, void *);
+void page_free(const struct hash_elem *, void *);
+struct page* page_lookup(const uint8_t *);
+void print_all_pages(const struct hash *);
+void remove_frames(const struct hash *, const struct hash *);
 
 #endif
 

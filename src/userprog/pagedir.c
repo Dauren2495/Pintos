@@ -113,26 +113,26 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
 
   if(!f_start){
     hash_init(&frames, frame_hash, frame_less, NULL);
-    list_init(&clock);
+    //list_init(&clock);
     swap_init(&swap);
     f_start = true;
   }
   pte = lookup_page (pd, upage, true);
-  *pte = 0;
   if (pte != NULL) 
     {
       ASSERT ((*pte & PTE_P) == 0);
       *pte = pte_create_user (kpage, writable);
+      // change kernel pagedir also
       struct frame *f = frame_lookup(&frames, (uint8_t*) kpage);
       if(f == NULL){
 	f = calloc(sizeof(struct frame), 1);
-	f->addr = (uint8_t*) kpage;
+	f->kpage = (uint8_t*) kpage;
 	hash_insert(&frames, &f->hash_elem);
       }
       f->age = total_ticks;
       f->pd = pd;
       f->upage = upage;
-      list_push_back(&clock, &f->list_elem);
+      //list_push_back(&clock, &f->list_elem);
       return true;
     }
   else

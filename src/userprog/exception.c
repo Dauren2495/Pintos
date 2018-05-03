@@ -12,7 +12,7 @@
 #include "threads/pte.h"
 
 extern struct swap swap;
-
+#define STACK_SIZE 1024*1024
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
@@ -162,81 +162,76 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  void* stack_limit = (unsigned)PHYS_BASE - 1028*1028;
-  uint32_t addr = (uintptr_t) fault_addr & ~PGMASK;
+  void* stack_end = (unsigned)PHYS_BASE - STACK_SIZE;
+  uint8_t *upage = (uint32_t) fault_addr & ~PGMASK;
   
-  if((unsigned)(f->esp - fault_addr) < 4096 && PHYS_BASE > fault_addr && fault_addr > stack_limit)
+  struct page *p = page_lookup(upage);
+  if((p != NULL) && (!write || p->writable))
     {
-      uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
-      if (kpage == NULL)
+      //printf("Get page\n");
+      /* Get a page of memory. */
+      void *kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+      if (!kpage)
+	kill(f);
+      p->kpage = (uint8_t*) kpage;
+      /* Load this page. */
+      if(p->swap){
+	swap_read(&swap, p);
+	//printf("Reading from swap\n");
+      }
+      else if(p->file != NULL)
+	{
+	  file_seek(p->file, p->ofs);
+	  if (file_read (p->file, kpage, p->read_bytes) != (int) p->read_bytes)
+	    {
+	      palloc_free_page (kpage);
+	      kill(f); 
+	    }
+	  memset (kpage + p->read_bytes, 0, p->zero_bytes);
+	}
+      else
+	memset (kpage + p->read_bytes, 0, p->zero_bytes);
+      /* Add the page to the process's address space. */
+      if (!pagedir_set_page(thread_current()->pagedir, (void*)p->upage, kpage,p->writable)) 
+	{
+	  palloc_free_page (kpage);
+	  kill(f); 
+	}
+      return;
+    }
+  else if((unsigned)(f->esp - fault_addr) < 4096 && PHYS_BASE > fault_addr && fault_addr > stack_end)
+    {
+      //printf("Get stack\n");
+      void *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
+      if (!kpage)
         kill(f);
-      if (!pagedir_set_page(thread_current()->pagedir, (void*) addr, kpage, write)) 
+      if (!pagedir_set_page(thread_current()->pagedir, (void*) upage, kpage, write)) 
         {
           palloc_free_page (kpage);
           kill(f); 
 	}
       struct thread *t = thread_current();
-      addr += 4096;
-      uint32_t *pte = lookup_page(t->pagedir, (void*) addr, true);
-      while((*pte & PTE_P) != 1){
-	//printf("inside loop: %x \n", addr);
-	struct page *p = calloc(sizeof(struct page), 1);
-	p->addr = (uint8_t*) addr;
-	p->file = NULL;
-	p->read_bytes = 0;
-	p->zero_bytes = 4096;
-	p->writable = true;
-	hash_insert(&t->pages, &p->hash_elem);
-	addr += 4096;
-	pte += 1;
-	//uint32_t *pte = lookup_page(t->pagedir, (void*) addr, true);
-      }
+      upage += PGSIZE;
+      while(!pagedir_get_page(t->pagedir, upage))
+	{
+	  struct page *p = calloc(sizeof(struct page), 1);
+	  p->upage = upage;
+	  p->file = NULL;
+	  p->read_bytes = 0;
+	  p->zero_bytes = PGSIZE;
+	  p->writable = true;
+	  hash_insert(&t->pages, &p->hash_elem);
+	  upage += PGSIZE;
+	}
       return;
     }
-  
-  struct page *p = page_lookup((uint8_t*) addr);
-  if( !p || (user && fault_addr >= PHYS_BASE)  || (write && !p->writable)){
-    //printf("Exception exit %x\n", p);
-    printf("%s: exit(%d)\n", thread_current()->name, -1);
-    thread_current()->exit_status = -1;
-    thread_exit();
-  }
-  else{
-    //printf("Get page\n");
-    /* Get a page of memory. */
-    uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-    if (kpage == NULL)
-      kill(f);
-
-    p->kpage = kpage;
-    /* Load this page. */
-    if(p->swap){
-      swap_read(&swap, p);
-      //printf("Reading from swap\n");
+  else
+    {
+      //printf("Exception exit %x\n", p);
+      printf("%s: exit(%d)\n", thread_current()->name, -1);
+      thread_current()->exit_status = -1;
+      thread_exit();
     }
-    else if(p->file != NULL)
-      {
-	//printf("file not null\n");
-	file_seek(p->file, p->ofs);
-	if (file_read (p->file, kpage, p->read_bytes) != (int) p->read_bytes)
-	  {
-	    palloc_free_page (kpage);
-	    kill(f); 
-	  }
-	memset (kpage + p->read_bytes, 0, p->zero_bytes);
-      }
-    else
-      memset (kpage + p->read_bytes, 0, p->zero_bytes);
-    
-    
-    /* Add the page to the process's address space. */
-    if (!pagedir_set_page(thread_current()->pagedir, (void*)p->addr, kpage,p->writable)) 
-      {
-	palloc_free_page (kpage);
-	kill(f); 
-      }
-    return;
-  }
   
   /*******END OF NEW LINES **********/
 

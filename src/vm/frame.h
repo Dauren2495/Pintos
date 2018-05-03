@@ -8,16 +8,16 @@ struct frame{
   struct list_elem list_elem;
   long long age;
   uint32_t *pd;
-  void *upage;
-  uint8_t *addr;
+  uint8_t *upage;
+  uint8_t *kpage;
 };
 
-unsigned frame_hash(const struct hash_elem *e, void *aux);
-bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
-void frame_free(const struct hash_elem *e, void *aux);
-struct frame *frame_lookup(struct hash *frames, const uint8_t *addr);
-void print_all_frames(const struct hash *hash);
-void print_clock_list(struct list *list);
-void *frame_evict(struct list* list,  int page_cnt);
+unsigned frame_hash(const struct hash_elem *, void *);
+bool frame_less(const struct hash_elem *, const struct hash_elem *, void *);
+void frame_free(const struct hash_elem *, void *);
+struct frame *frame_lookup(struct hash *, const uint8_t *);
+void print_all_frames(const struct hash *);
+void print_clock_list(struct list *);
+void *frame_evict(struct hash* ,  int );
 
 #endif

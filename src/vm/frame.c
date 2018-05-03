@@ -5,24 +5,23 @@
 #include "threads/malloc.h"
 #include "threads/pte.h"
 #include "userprog/pagedir.h"
+#include "lib/random.h"
+
 
 extern long long total_ticks;
 extern struct swap swap;
-
+extern size_t user_base;
 unsigned frame_hash(const struct hash_elem *e, void* aux)
 {
   const struct frame *f = hash_entry(e, struct frame, hash_elem);
-  return hash_bytes(&f->addr, sizeof f->age);
+  return hash_bytes(&f->kpage, sizeof f->age);
 }
 
 bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux)
 {
   const struct frame *f1 = hash_entry(a, struct frame, hash_elem);
   const struct frame *f2 = hash_entry(b, struct frame, hash_elem);
-  if(f1->age == f2->age)
-    return f1->addr < f2->addr;
-  else
-    return f1->age < f2->age;
+  return f1->kpage < f2->kpage;
 }
 
 void frame_free(const struct hash_elem *e, void *aux)
@@ -31,13 +30,13 @@ void frame_free(const struct hash_elem *e, void *aux)
   free(f);
 }
 
-struct frame* frame_lookup(struct hash *frames, const uint8_t *addr)
+struct frame* frame_lookup(struct hash *frames, const uint8_t *kpage)
 {
-  struct frame f;
+  struct frame *f = calloc(sizeof(struct frame), 1);
   struct hash_elem *e;
-  uint32_t mask = (uintptr_t) addr & ~PGMASK;
-  f.addr = (uint8_t*) mask;
-  e = hash_find(frames, &f.hash_elem);
+  f->kpage = (uint32_t) kpage & ~PGMASK;
+  e = hash_find(frames, &f->hash_elem);
+  free(f);
   return e != NULL ? hash_entry(e, struct frame, hash_elem) : NULL;
 }
 
@@ -49,7 +48,7 @@ void print_all_frames(const struct hash *hash)
   hash_first(&i, hash);
   while(hash_next(&i)){
     struct frame *f = hash_entry(hash_cur(&i), struct frame, hash_elem);
-    printf("Element %d with age %lu\n", ++j, f->age);
+    printf("frame at address %x\n", f->kpage);
   }
 }
 void print_clock_list(struct list *list)
@@ -62,42 +61,40 @@ void print_clock_list(struct list *list)
     printf("Element %d with age %lu\n", ++j, f->age);
   }
 }
-void *frame_evict(struct list *list, int page_cnt)
+void *frame_evict(struct hash *frames, int page_cnt)
 {
-  struct list_elem *e;
-  struct frame *f = list_entry(list_rbegin(list), struct frame, list_elem);
-  list_remove(&f->list_elem);
-  uint32_t *pte = lookup_page(f->pd, f->upage, false);
-  //printf("Evicting Page %x\n", f->upage);
-  if(*pte & PTE_D){
-    //printf("writing to  swap\n");
-    swap_write(&swap, f->upage);
-  }
-  if(pte != NULL)
-    *pte = 0;
- /*for(e = list_begin(list); e != list_end(list); e = list_next(e))
-  {
-    f  = list_entry(e, struct frame, list_elem);
-    uint32_t *pte = lookup_page(f->pd, f->upage, false);
-    if(!(*pte & PTE_W)){
-      if(*pte & PTE_A){
-	*pte &= ~(uint32_t) PTE_A;
-	f->age = total_ticks;
-	list_remove(&f->list_elem);
-	list_push_back(list, &f->list_elem); 
-      }
-      else{
-	list_remove(&f->list_elem);
-	*pte = 0;
-	break;
-	//evict
-	//change age and move back
-	// change pd
-	//chnage upage
-      }
-    }
-    }*/
-  return (void*)f->addr;
+  int random;
+  random_bytes(&random, sizeof(int));
+  size_t size = hash_size(frames);
+  random %= size;
+  uint8_t *kpage = user_base + random * PGSIZE;
+  struct frame *f = frame_lookup(frames, kpage);
+  if(pagedir_is_dirty(f->pd, f->upage))
+      swap_write(&swap, f->upage);
+  pagedir_clear_page(f->pd, f->upage);
   
+  /*struct list_elem *e;
+  void *kpage =  NULL;
+  while(!kpage){
+    for(e = list_begin(list); e !=  list_end(list); e = list_next(e))
+      {
+	struct frame *f = list_entry(e, struct frame, list_elem);
+	if(pagedir_is_accessed(f->pd, f->upage))
+	  pagedir_set_accessed(f->pd, f->upage, false);
+	else{
+	  list_remove(&f->list_elem);
+	  printf("Evicting Page %x\n", f->upage);
+	  if(pagedir_is_dirty(f->pd, f->upage)){
+	    printf("writing to  swap\n");
+	    swap_write(&swap, f->upage);
+	  }
+	  pagedir_clear_page(f->pd, f->upage);
+	  kpage = (void*)f->kpage;
+	  break;
+	  }
+      }
+  }
+  */
+  return kpage;
 }
 
