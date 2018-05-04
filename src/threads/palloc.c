@@ -33,10 +33,10 @@ size_t user_base;
 /* A memory pool. */
 struct pool
   {
-    //struct lock lock;                   /* Mutual exclusion. */
+    struct lock lock;                   /* Mutual exclusion. */
     struct bitmap *used_map;            /* Bitmap of free pages. */
     uint8_t *base;                      /* Base of pool. */
-    struct semaphore sema;
+    //struct semaphore sema;
 };
 
 /* Two pools: one for kernel data, one for user pages. */
@@ -80,15 +80,14 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
   struct pool *pool = flags & PAL_USER ? &user_pool : &kernel_pool;
   void *pages;
   size_t page_idx;
-
   if (page_cnt == 0)
     return NULL;
   
-  //lock_acquire (&pool->lock);
-  sema_down(&pool->sema);
+  lock_acquire (&pool->lock);
+  //sema_down(&pool->sema);
   page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
-  sema_up(&pool->sema);
-  //lock_release (&pool->lock);
+  //sema_up(&pool->sema);
+  lock_release (&pool->lock);
 
   if (page_idx != BITMAP_ERROR)
     pages = pool->base + PGSIZE * page_idx;
@@ -102,6 +101,8 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     }
   else 
     {
+      if(page_cnt > 1)
+	printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
       pages = frame_evict(&frames, page_cnt);
       memset(pages, 0, PGSIZE * page_cnt);
       if (flags & PAL_ASSERT)
@@ -186,8 +187,8 @@ init_pool (struct pool *p, void *base, size_t page_cnt, const char *name)
   printf ("%zu pages available in %s.\n", page_cnt, name);
 
   /* Initialize the pool. */
-  //lock_init (&p->lock);
-  sema_init(&p->sema, 1);
+  lock_init (&p->lock);
+  //sema_init(&p->sema, 1);
   p->used_map = bitmap_create_in_buf (page_cnt, base, bm_pages * PGSIZE);
   p->base = base + bm_pages * PGSIZE;
 }

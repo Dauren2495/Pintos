@@ -1,0 +1,18 @@
+#ifndef SWAP_H
+#define SWAP_H
+
+#include <bitmap.h>
+#include "devices/block.h"
+#include "vm/page.h"
+
+struct swap{
+  struct bitmap *bitmap;
+  struct block *block;
+  size_t page_cnt;
+};
+void swap_init(struct swap *);
+void swap_write(struct swap *,uint8_t *);
+void swap_read(struct swap *,struct page *);
+// free swap of terminating process
+#endif
+  

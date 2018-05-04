@@ -148,7 +148,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  //swap_remove(&swap, &cur->pages);
+  swap_remove(&swap, &cur->pages);
   hash_destroy(&cur->pages, page_free);
 }
 
