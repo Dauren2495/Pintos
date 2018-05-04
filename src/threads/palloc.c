@@ -86,7 +86,6 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
   lock_acquire (&pool->lock);
   //sema_down(&pool->sema);
   page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
-  //sema_up(&pool->sema);
   lock_release (&pool->lock);
 
   if (page_idx != BITMAP_ERROR)
@@ -159,7 +158,6 @@ palloc_free_multiple (void *pages, size_t page_cnt)
 #ifndef NDEBUG
   memset (pages, 0xcc, PGSIZE * page_cnt);
 #endif
-
   ASSERT (bitmap_all (pool->used_map, page_idx, page_cnt));
   bitmap_set_multiple (pool->used_map, page_idx, page_cnt, false);
 }

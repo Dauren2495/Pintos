@@ -7,6 +7,7 @@
 #include "filesys/file.h"
 #include "threads/synch.h"
 #include <hash.h>
+#include "threads/palloc.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -18,6 +19,7 @@ enum thread_status
     /****** NEW STATUS ************/
     THREAD_ZOMBIE      /* Status of userprogs which need to be reaped by their parents */
   };
+
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -120,10 +122,17 @@ struct thread
     struct list children;
     struct list_elem child_elem;
     struct hash pages;
+    struct list map;
     /**********END OF NEW **********/
 };
 
 /********** NEW LINES **********/
+struct map{
+  struct list_elem list_elem;
+  uint8_t *addr;
+  unsigned cnt;
+  unsigned mapid;
+};
 struct fd_{
   int fd;
   struct file *file;

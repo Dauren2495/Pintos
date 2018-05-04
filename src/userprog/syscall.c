@@ -58,57 +58,6 @@ void check_ptr(void *ptr){
   check_buffer(ptr, 4);
 }
     
-  
-void is_bad_args(int *p, int argc){
-  bool bad = false;
-  struct thread *t  = thread_current();
-  if(argc == 0){
-    if(p >= PHYS_BASE || p == NULL)
-      bad = true;
-    if(!bad)
-      if(!pagedir_get_page(t->pagedir, p))
-	bad = true;
-  }
-  else if(argc == 1){
-    void *arg1 = p + 1;
-    if(arg1 >= PHYS_BASE)
-      bad = true;
-    if(!bad)
-      if(!pagedir_get_page(t->pagedir, arg1))
-	bad = true;
-  }
-  else if(argc == 2){
-    void *arg1 = p + 1;
-    void *arg2 = p + 2;
-    if(arg1 >= PHYS_BASE || arg2 >= PHYS_BASE)
-      bad = true;
-    if(!bad)
-      if(!pagedir_get_page(t->pagedir, arg1) || \
-	 !pagedir_get_page(t->pagedir, arg2))
-	bad = true;
-  }
-  else{
-    void *arg1 = p + 1;
-    void *arg2 = p + 2;
-    void *arg3 = p + 3;
-    if(arg1 >= PHYS_BASE || arg2 >= PHYS_BASE || arg3 >= PHYS_BASE)
-      bad = true;
-    
-    if(!bad)
-      if(!pagedir_get_page(t->pagedir, arg1) || \
-	 !pagedir_get_page(t->pagedir, arg2) || \
-	 !pagedir_get_page(t->pagedir, arg3))
-	bad = true;
-    }
-  
-  if(bad){
-    t->exit_status = -1;
-    printf("%s: exit(%d)\n", t->name, t->exit_status);
-    thread_exit();
-  }
-    
-}
-
 struct fd_ *search_fd(struct thread *t, int fd){
     struct list_elem *e;
     struct fd_ *file_d = NULL;
@@ -293,5 +242,86 @@ syscall_handler (struct intr_frame *f UNUSED)
 	//printf("End of SYS_WAIT\n");
 	break;
       }
+    case SYS_MMAP:
+      {
+	check_ptr(p + 1);
+	check_ptr(p + 2);
+	int fd = *(p + 1);
+	uint8_t *addr = *(p + 2);
+	struct fd_ *file_d = search_fd(t, fd);
+	if(!fd){
+	  f->eax = -1;
+	  break;
+	}
+	size_t file_size = file_length(file_d->file);
+	size_t pages = (file_size / PGSIZE) + 1;
+	size_t last_read = file_size % PGSIZE;
+	uint8_t *last_addr = addr + pages * PGSIZE;
+	// account for stack overlap
+	if( addr == NULL || file_size == 0 || (unsigned) addr % PGSIZE != 0 ||  \
+	    pagedir_get_page(t->pagedir, addr) || page_lookup(addr) ||          \
+	    pagedir_get_page(t->pagedir, last_addr) || page_lookup(last_addr)){
+	  f->eax = -1;
+	  break;
+	}
+	struct map *m = calloc(sizeof(struct map), 1);
+	m->addr = addr;
+	m->cnt = pages;
+	m->mapid = t->next_fd++;
+	list_push_back(&t->map, &m->list_elem);
+
+	for(int i = 0; i < pages; i++)
+	  {
+	    struct page *p = calloc(sizeof(struct page), 1);
+	    p->upage = addr;
+	    p->file = file_reopen(file_d->file);
+	    p->writable = file_d->file->inode->deny_write_cnt > 0 ? false : true;
+	    p->ofs = i * PGSIZE;
+	    p->kpage = NULL;
+	    if(i != (pages - 1)){
+	      p->read_bytes  = PGSIZE;
+	      p->zero_bytes = 0;
+	    }
+	    else{
+	      p->read_bytes = last_read;
+	      p->zero_bytes = PGSIZE - last_read;
+	    }
+	    hash_insert(&t->pages, &p->hash_elem);
+	    addr += PGSIZE;
+	    //printf("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n");
+	  }
+	f->eax = m->mapid;
+	break;
+      }
+    case SYS_MUNMAP:
+      {
+	//printf("-----------------------------remove\n");
+	check_ptr(p + 1);
+	unsigned mapid = *(p + 1);
+	uint8_t *addr;
+	struct list_elem *e;
+	struct map *m;
+	for( e = list_begin(&t->map); e != list_end(&t->map); e = list_next(e))
+	  {
+	    m = list_entry(e, struct map, list_elem);
+	    if(m->mapid == mapid)
+	      break;
+	  }
+	for(int i = 0; i < m->cnt; i++)
+	  {
+	    struct page *p = page_lookup(m->addr + i * PGSIZE);
+	    if(pagedir_is_dirty(t->pagedir, p->upage))
+	      file_write_at(p->file, p->upage, PGSIZE, p->ofs);
+	    pagedir_clear_page(t->pagedir, p->upage);
+	    palloc_free_page(p->kpage);
+	    hash_delete(&t->pages, &p->hash_elem);
+	    free(p->file);
+	    free(p);
+	  }
+	list_remove(&m->list_elem);
+	free(m);
+	break;
+      }
+      
     }
 }

@@ -6,7 +6,7 @@
 #include "tests/lib.h"
 #include "tests/main.h"
 
-#define SIZE 364 * 4096 //(2 * 1024 * 1024)
+#define SIZE (2 * 1024 * 1024)
 
 static char buf[SIZE];
 
@@ -38,7 +38,10 @@ test_main (void)
 
   /* Check that it's all 0x5a. */
   msg ("read pass");
+  size_t j;
   for (i = 0; i < SIZE; i++)
-    if (buf[i] != 0x5a)
+    if (buf[i] != 0x5a){
+      //printf("----------------- BUF[%d]: %x\n", i, buf[i]); 
       fail ("byte %zu != 0x5a", i);
+    }
 }

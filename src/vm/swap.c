@@ -14,15 +14,16 @@
 #include "devices/block.h"
 #include "vm/page.h"
 #include "threads/malloc.h"
+#include "threads/vaddr.h"
 
-#define blocks_in_page 8
+#define BLOCK_PER_PG (PGSIZE / BLOCK_SECTOR_SIZE)
 
 void swap_init(struct swap *swap)
 {
   struct block *block = block_get_role(BLOCK_SWAP);
   size_t b_size = block_size(block);
   swap->block = block;
-  size_t page_cnt  = b_size / blocks_in_page;
+  size_t page_cnt  = b_size / BLOCK_PER_PG;
   swap->bitmap = bitmap_create(page_cnt);
   //lock_init(&swap->lock);
   sema_init(&swap->sema, 1);
@@ -30,12 +31,10 @@ void swap_init(struct swap *swap)
 
 void swap_write(struct swap *swap, uint8_t *upage)
 {
-  //lock_acquire(&swap->lock);
   sema_down(&swap->sema);
   size_t page_idx = bitmap_scan_and_flip(swap->bitmap, 0, 1, false);
   sema_up(&swap->sema);
-  //lock_release(&swap->lock);
-  size_t block_idx = page_idx * blocks_in_page;
+  size_t block_idx = page_idx * BLOCK_PER_PG;
   // update supplemental page table
   struct page *p =  page_lookup(upage);
   if(!p){
@@ -43,12 +42,11 @@ void swap_write(struct swap *swap, uint8_t *upage)
     p->upage =  upage;
     hash_insert(&thread_current()->pages, &p->hash_elem);
   }
-  //p->file = NULL;
   p->writable = true;
   p->swap = true;
   p->ofs = block_idx;
   // write page to swap
-  for(size_t i = block_idx; i < block_idx + blocks_in_page; i++)
+  for(size_t i = block_idx; i < block_idx + BLOCK_PER_PG; i++)
     {
       block_write(swap->block, i, upage);
       upage += BLOCK_SECTOR_SIZE;
@@ -57,11 +55,11 @@ void swap_write(struct swap *swap, uint8_t *upage)
 void swap_read(struct swap *swap, struct page *p)
 {
   size_t block_idx = p->ofs;
-  if(p->ofs % blocks_in_page != 0)
+  if(p->ofs % BLOCK_PER_PG != 0)
     printf("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\n");
-  size_t page_idx = p->ofs / blocks_in_page;
+  size_t page_idx = p->ofs / BLOCK_PER_PG;
   uint8_t *kpage = p->kpage;
-  for(size_t i = block_idx; i < block_idx + blocks_in_page; i++)
+  for(size_t i = block_idx; i < block_idx + BLOCK_PER_PG; i++)
     {
       block_read(swap->block, i, kpage);
       kpage += BLOCK_SECTOR_SIZE;
@@ -75,6 +73,6 @@ void swap_remove(struct swap *swap, struct hash *pages)
   while(hash_next(&i)){
     struct page *p = hash_entry(hash_cur(&i), struct page, hash_elem);
     if(p->swap)
-      bitmap_set(swap->bitmap, p->ofs / blocks_in_page, false);
+      bitmap_set(swap->bitmap, p->ofs / BLOCK_PER_PG, false);
   }
 }

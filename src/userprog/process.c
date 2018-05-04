@@ -127,14 +127,33 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
-  struct thread *cur = thread_current ();
+  
+  struct thread *t = thread_current ();
   uint32_t *pd;
-
+  struct list_elem *e;
+  for( e = list_begin(&t->map); e != list_end(&t->map);)
+    {
+      struct map *m = list_entry(e, struct map, list_elem);
+      for(int i = 0; i < m->cnt; i++)
+	{
+	  struct page *p = page_lookup(m->addr + i * PGSIZE);
+	  if(pagedir_is_dirty(t->pagedir, p->upage))
+	    file_write_at(p->file, p->upage, PGSIZE, p->ofs);
+	  pagedir_clear_page(t->pagedir, p->upage);
+	  palloc_free_page(p->kpage);
+	  hash_delete(&t->pages, &p->hash_elem);
+	  free(p->file);
+	  free(p);
+	}
+      e = list_remove(&m->list_elem);
+      free(m);
+    }
+  	
   /*END NEW MANS*/
   //thread_current()->dead = true;
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
-  pd = cur->pagedir;
+  pd = t->pagedir;
   if (pd != NULL) 
     {
       /* Correct ordering here is crucial.  We must set
@@ -144,12 +163,12 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-      cur->pagedir = NULL;
+      t->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  swap_remove(&swap, &cur->pages);
-  hash_destroy(&cur->pages, page_free);
+  swap_remove(&swap, &t->pages);
+  hash_destroy(&t->pages, page_free);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -541,7 +560,7 @@ load_segment_modified (struct file *file, off_t ofs, uint8_t *upage,
       p->zero_bytes = page_zero_bytes;
       p->writable = writable;
       p->kpage = NULL;
-      
+      p->swap = false;
       hash_insert(&thread_current()->pages, &p->hash_elem);
       
       // Advance. 

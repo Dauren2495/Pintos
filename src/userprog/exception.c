@@ -216,6 +216,7 @@ page_fault (struct intr_frame *f)
       while(!pagedir_get_page(t->pagedir, upage))
 	{
 	  struct page *p = calloc(sizeof(struct page), 1);
+	  p->swap = false;
 	  p->upage = upage;
 	  p->file = NULL;
 	  p->read_bytes = 0;

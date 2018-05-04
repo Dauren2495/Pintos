@@ -63,14 +63,21 @@ void print_clock_list(struct list *list)
 }
 void *frame_evict(struct hash *frames, int page_cnt)
 {
-  int random;
-  random_bytes(&random, sizeof(int));
+  size_t random;
+  random_bytes(&random, sizeof(size_t));
   size_t size = hash_size(frames);
   random %= size;
   uint8_t *kpage = user_base + random * PGSIZE;
   struct frame *f = frame_lookup(frames, kpage);
-  if(pagedir_is_dirty(f->pd, f->upage))
+  struct page *p = page_lookup(f->upage);
+  if(pagedir_is_dirty(f->pd, f->upage)){
+    if(p->file != NULL && p->writable){
+      printf("------------------------------------------\n");
+      file_write_at(p->file, p->upage, PGSIZE, p->ofs);
+    }
+    else
       swap_write(&swap, f->upage);
+  }
   pagedir_clear_page(f->pd, f->upage);
   
   /*struct list_elem *e;
