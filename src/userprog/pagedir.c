@@ -128,11 +128,13 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
       struct frame *f = frame_lookup(&frames, (uint8_t*) kpage);
       if(f == NULL){
 	f = calloc(sizeof(struct frame), 1);
+	f->kpage = kpage;
 	hash_insert(&frames, &f->hash_elem);
+	printf("----------------------NOT FOUND: SIZE IS %d -----------------\n", hash_size(&frames));
       }
-      f->kpage = kpage;
+      else
+	printf("------------------------- FOUND ------------------------------\n");
       f->hash = &thread_current()->pages;
-      f->age = total_ticks;
       f->pd = pd;
       f->upage = upage;
       list_push_back(&clock, &f->list_elem);

@@ -14,7 +14,7 @@ extern size_t user_base;
 unsigned frame_hash(const struct hash_elem *e, void* aux)
 {
   const struct frame *f = hash_entry(e, struct frame, hash_elem);
-  return hash_bytes(&f->kpage, sizeof f->age);
+  return hash_int(f->kpage); //hash_bytes(f->kpage, sizeof(f->kpage));
 }
 
 bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux)
@@ -32,11 +32,11 @@ void frame_free(const struct hash_elem *e, void *aux)
 
 struct frame* frame_lookup(struct hash *frames, const uint8_t *kpage)
 {
-  struct frame *f = calloc(sizeof(struct frame), 1);
+  struct frame f;// = calloc(sizeof(struct frame), 1);
   struct hash_elem *e;
-  f->kpage = (uint32_t) kpage & ~PGMASK;
-  e = hash_find(frames, &f->hash_elem);
-  free(f);
+  f.kpage = (uint32_t) kpage & ~PGMASK;
+  e = hash_find(frames, &f.hash_elem);
+  //free(f);
   return e != NULL ? hash_entry(e, struct frame, hash_elem) : NULL;
 }
 
