@@ -229,8 +229,8 @@ page_fault (struct intr_frame *f)
     }
   else
     {
-      printf("--------------------- Exception exit %x---------------\n", fault_addr);//, p->upage);
-      PANIC ("Kernel bug - unexpected interrupt in kernel"); 
+      //printf("--------------------- Exception exit %x---------------\n", fault_addr);//, p->upage);
+      //PANIC ("Kernel bug - unexpected interrupt in kernel"); 
       printf("%s: exit(%d)\n", thread_current()->name, -1);
       thread_current()->exit_status = -1;
       thread_exit();

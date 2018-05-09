@@ -126,14 +126,12 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
       *pte = pte_create_user (kpage, writable);
       // change kernel pagedir also
       struct frame *f = frame_lookup(&frames, (uint8_t*) kpage);
-      if(f == NULL){
-	f = calloc(sizeof(struct frame), 1);
-	f->kpage = kpage;
-	hash_insert(&frames, &f->hash_elem);
-	printf("----------------------NOT FOUND: SIZE IS %d -----------------\n", hash_size(&frames));
-      }
-      else
-	printf("------------------------- FOUND ------------------------------\n");
+      if(f == NULL)
+	{
+	  f = calloc(sizeof(struct frame), 1);
+	  f->kpage = kpage;
+	  hash_insert(&frames, &f->hash_elem);
+	}
       f->hash = &thread_current()->pages;
       f->pd = pd;
       f->upage = upage;

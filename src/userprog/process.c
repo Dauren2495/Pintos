@@ -166,10 +166,14 @@ process_exit (void)
          that's been freed (and cleared). */
       t->pagedir = NULL;
       pagedir_activate (NULL);
+      lock_acquire(&swap.lock);
       pagedir_destroy (pd);
+      lock_release(&swap.lock);
     }
-  swap_remove(&swap, &t->pages);
-  hash_destroy(&t->pages, page_free);
+  // printf(" -----------------size of hash is %d ------------------\n", hash_size(&frames));
+  //swap_remove(&swap, &t->pages);
+  //hash_destroy(&t->pages, page_free);
+  //printf("+++++++++++++++++++++++++++++++++++++++\n");
 }
 
 /* Sets up the CPU for running user code in the current

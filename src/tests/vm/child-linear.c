@@ -15,7 +15,6 @@ static char buf[SIZE];
 int
 main (int argc, char *argv[])
 {
-  printf("-------------------in child ------------------------\n");
   const char *key = argv[argc - 1];
   struct arc4 arc4;
   size_t i;

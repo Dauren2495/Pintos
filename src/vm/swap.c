@@ -32,9 +32,11 @@ void swap_init(struct swap *swap)
 void swap_write(struct swap *swap, struct frame *f)
 {
   //printf("----------------------swap write --------------\n");
-  //sema_down(&swap->sema);
+  //lock_acquire(&swap->lock);
   size_t page_idx = bitmap_scan_and_flip(swap->bitmap, 0, 1, false);
-  //sema_up(&swap->sema);
+  //lock_release(&swap->lock);
+  if(page_idx == BITMAP_ERROR)
+    printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
   size_t block_idx = page_idx * BLOCK_PER_PG;
   // update supplemental page table
   struct page *p =  page_lookup(f->hash, f->upage);

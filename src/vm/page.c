@@ -6,7 +6,7 @@
 unsigned page_hash(const struct hash_elem *e, void* aux)
 {
   const struct page *p = hash_entry(e, struct page, hash_elem);
-  return hash_bytes(&p->upage, sizeof p->upage);
+  return hash_int(p->upage);//hash_bytes(&p->upage, sizeof p->upage);
   
 }
 bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux)

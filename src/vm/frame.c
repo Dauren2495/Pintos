@@ -65,6 +65,7 @@ void *frame_evict(struct list *list, int page_cnt)
 {
   struct list_elem *e;
   void *kpage =  NULL;
+  lock_acquire(&swap.lock);
   while(!kpage){
     for(e = list_begin(list); e !=  list_end(list); e = list_next(e))
       {
@@ -74,17 +75,10 @@ void *frame_evict(struct list *list, int page_cnt)
 	  pagedir_set_accessed(f->pd, f->upage, false);
 	else{
 	  list_remove(&f->list_elem);
-	  //xprintf("Evicting Page %x\n", f->upage);
-	  //if(pagedir_is_dirty(f->pd, f->upage)){
-	    //printf("writing to  swap\n");
-	  //sema_down(&swap.sema);
-	  lock_acquire(&swap.lock);
 	  swap_write(&swap, f);
-	  lock_release(&swap.lock);
-	  //sema_up(&swap.sema);
-	    //}
 	  pagedir_clear_page(f->pd, f->upage);
 	  kpage = (void*)f->kpage;
+	  lock_release(&swap.lock);
 	  break;
 	  }
       }
