@@ -8,9 +8,8 @@
 #include "lib/random.h"
 
 
-extern long long total_ticks;
 extern struct swap swap;
-extern size_t user_base;
+
 unsigned frame_hash(const struct hash_elem *e, void* aux)
 {
   const struct frame *f = hash_entry(e, struct frame, hash_elem);
@@ -61,20 +60,21 @@ void print_clock_list(struct list *list)
     printf("Element %d with age %lu\n", ++j, f->age);
   }
 }
-void *frame_evict(struct list *list, int page_cnt)
+void *frame_evict(struct hash *frames, int page_cnt)
 {
   struct list_elem *e;
   void *kpage =  NULL;
   lock_acquire(&swap.lock);
+  struct hash_iterator i;
+  hash_first(&i, frames);
   while(!kpage){
-    for(e = list_begin(list); e !=  list_end(list); e = list_next(e))
+    while(hash_next(&i))
       {
-	struct frame *f = list_entry(e, struct frame, list_elem);
-	//printf("-----------------------f at %x ---------------------\n", f);
+	struct frame *f = hash_entry(hash_cur(&i), struct frame, hash_elem);
 	if(pagedir_is_accessed(f->pd, f->upage))
 	  pagedir_set_accessed(f->pd, f->upage, false);
 	else{
-	  list_remove(&f->list_elem);
+	  hash_delete(frames, &f->hash_elem);
 	  swap_write(&swap, f);
 	  pagedir_clear_page(f->pd, f->upage);
 	  kpage = (void*)f->kpage;
@@ -82,6 +82,8 @@ void *frame_evict(struct list *list, int page_cnt)
 	  break;
 	  }
       }
+    if(!kpage)
+      hash_first(&i, frames);
   }
   return kpage;
 }

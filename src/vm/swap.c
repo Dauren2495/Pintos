@@ -52,10 +52,11 @@ void swap_write(struct swap *swap, struct frame *f)
   // write page to swap
   for(size_t i = block_idx; i < block_idx + BLOCK_PER_PG; i++)
     {
-      //printf("--------------- in loop %i ---------------\n", i);
+      //printf("--------------- in loop %x ---------------\n", kpage);
       block_write(swap->block, i, kpage);
       kpage += BLOCK_SECTOR_SIZE;
     }
+  //printf("-------------------end of swap write -------------------\n");  
 }
 void swap_read(struct swap *swap, struct page *p)
 {
@@ -75,6 +76,7 @@ void swap_read(struct swap *swap, struct page *p)
 }
 void swap_remove(struct swap *swap, struct hash *pages)
 {
+  printf("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n");
   struct hash_iterator i;
   hash_first(&i, pages);
   while(hash_next(&i)){

@@ -148,6 +148,7 @@ process_exit (void)
       e = list_remove(&m->list_elem);
       free(m);
     }
+  //printf("-------------------in child ------------------------\n");
   	
   /*END NEW MANS*/
   //thread_current()->dead = true;
@@ -170,9 +171,9 @@ process_exit (void)
       pagedir_destroy (pd);
       lock_release(&swap.lock);
     }
-  // printf(" -----------------size of hash is %d ------------------\n", hash_size(&frames));
+  //printf(" -----------------size of hash is %d ------------------\n", hash_size(&frames));
   //swap_remove(&swap, &t->pages);
-  //hash_destroy(&t->pages, page_free);
+  hash_destroy(&t->pages, page_free);
   //printf("+++++++++++++++++++++++++++++++++++++++\n");
 }
 
