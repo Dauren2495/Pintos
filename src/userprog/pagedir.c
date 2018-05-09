@@ -7,6 +7,8 @@
 #include "threads/palloc.h"
 #include "vm/frame.h"
 #include "vm/swap.h"
+#include "threads/thread.h"
+
 
 static uint32_t *active_pd (void);
 static void invalidate_pagedir (uint32_t *);
@@ -113,7 +115,7 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
 
   if(!f_start){
     hash_init(&frames, frame_hash, frame_less, NULL);
-    //list_init(&clock);
+    list_init(&clock);
     swap_init(&swap);
     f_start = true;
   }
@@ -126,13 +128,14 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
       struct frame *f = frame_lookup(&frames, (uint8_t*) kpage);
       if(f == NULL){
 	f = calloc(sizeof(struct frame), 1);
-	f->kpage = (uint8_t*) kpage;
 	hash_insert(&frames, &f->hash_elem);
       }
+      f->kpage = kpage;
+      f->hash = &thread_current()->pages;
       f->age = total_ticks;
       f->pd = pd;
       f->upage = upage;
-      //list_push_back(&clock, &f->list_elem);
+      list_push_back(&clock, &f->list_elem);
       return true;
     }
   else

@@ -12,7 +12,7 @@
 #include "threads/pte.h"
 
 extern struct swap swap;
-#define STACK_SIZE 1024*1024
+#define STACK_SIZE 1024 * 1024
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
@@ -147,7 +147,7 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
-  //printf("-------------------------------------Page fault at %x\n", fault_addr);
+  printf("+++++++++++ THREAD: %d ---------------------Page fault at %x\n",thread_current()->tid, fault_addr);
  
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
@@ -165,7 +165,7 @@ page_fault (struct intr_frame *f)
   void* stack_end = (unsigned)PHYS_BASE - STACK_SIZE;
   uint8_t *upage = (uint32_t) fault_addr & ~PGMASK;
   
-  struct page *p = page_lookup(upage);
+  struct page *p = page_lookup(&thread_current()->pages, upage);
   if((p != NULL) && (!write || p->writable))
     {
       //printf("Get page\n");
@@ -175,10 +175,8 @@ page_fault (struct intr_frame *f)
 	kill(f);
       p->kpage = (uint8_t*) kpage;
       /* Load this page. */
-      if(p->swap){
+      if(p->swap)
 	swap_read(&swap, p);
-	//printf("Reading from swap\n");
-      }
       else if(p->file != NULL)
 	{
 	  file_seek(p->file, p->ofs);
@@ -231,7 +229,8 @@ page_fault (struct intr_frame *f)
     }
   else
     {
-      //printf("Exception exit %x\n", p);
+      printf("--------------------- Exception exit %x---------------\n", fault_addr);//, p->upage);
+      PANIC ("Kernel bug - unexpected interrupt in kernel"); 
       printf("%s: exit(%d)\n", thread_current()->name, -1);
       thread_current()->exit_status = -1;
       thread_exit();

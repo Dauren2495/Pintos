@@ -61,47 +61,57 @@ void print_clock_list(struct list *list)
     printf("Element %d with age %lu\n", ++j, f->age);
   }
 }
-void *frame_evict(struct hash *frames, int page_cnt)
+void *frame_evict(struct list *list, int page_cnt)
 {
+  /*
   size_t random;
+  uint8_t *kpage;
+  struct frame *f = NULL;
   random_bytes(&random, sizeof(size_t));
   size_t size = hash_size(frames);
   random %= size;
-  uint8_t *kpage = user_base + random * PGSIZE;
-  struct frame *f = frame_lookup(frames, kpage);
-  struct page *p = page_lookup(f->upage);
-  if(pagedir_is_dirty(f->pd, f->upage)){
-    if(p->file != NULL && p->writable){
-      printf("------------------------------------------\n");
-      file_write_at(p->file, p->upage, PGSIZE, p->ofs);
+  kpage = user_base + random * PGSIZE;
+  while(!f)
+    {
+      f = frame_lookup(frames, kpage);
+      random++;
+      random %= 365;
+      kpage = user_base + random * PGSIZE;
+      printf(" nothing at -------------------------- %x ------------\n", kpage);
     }
-    else
-      swap_write(&swap, f->upage);
-  }
+  //if(pagedir_is_dirty(f->pd, f->upage))
+  lock_acquire(&swap.lock);
+  swap_write(&swap, f);
+  lock_release(&swap.lock);
+  //swap_write(&swap, f);
   pagedir_clear_page(f->pd, f->upage);
-  
-  /*struct list_elem *e;
+  */
+  struct list_elem *e;
   void *kpage =  NULL;
   while(!kpage){
     for(e = list_begin(list); e !=  list_end(list); e = list_next(e))
       {
 	struct frame *f = list_entry(e, struct frame, list_elem);
+	printf("-----------------------f at %x ---------------------\n", f);
 	if(pagedir_is_accessed(f->pd, f->upage))
 	  pagedir_set_accessed(f->pd, f->upage, false);
 	else{
 	  list_remove(&f->list_elem);
 	  printf("Evicting Page %x\n", f->upage);
-	  if(pagedir_is_dirty(f->pd, f->upage)){
-	    printf("writing to  swap\n");
-	    swap_write(&swap, f->upage);
-	  }
+	  //if(pagedir_is_dirty(f->pd, f->upage)){
+	    //printf("writing to  swap\n");
+	  //sema_down(&swap.sema);
+	  lock_acquire(&swap.lock);
+	  swap_write(&swap, f);
+	  lock_release(&swap.lock);
+	  //sema_up(&swap.sema);
+	    //}
 	  pagedir_clear_page(f->pd, f->upage);
 	  kpage = (void*)f->kpage;
 	  break;
 	  }
       }
   }
-  */
   return kpage;
 }
 

@@ -26,7 +26,7 @@ bool valid_byte(void *p){
   struct thread *t = thread_current();
   if(p >= PHYS_BASE || p == NULL)
     return false;
-  if(!pagedir_get_page(t->pagedir,p) && !page_lookup(p))
+  if(!pagedir_get_page(t->pagedir,p) && !page_lookup(&t->pages, p))
     return false;
   return true;
 }
@@ -259,8 +259,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 	uint8_t *last_addr = addr + pages * PGSIZE;
 	// account for stack overlap
 	if( addr == NULL || file_size == 0 || (unsigned) addr % PGSIZE != 0 ||  \
-	    pagedir_get_page(t->pagedir, addr) || page_lookup(addr) ||          \
-	    pagedir_get_page(t->pagedir, last_addr) || page_lookup(last_addr)){
+	    pagedir_get_page(t->pagedir, addr) || page_lookup(&t->pages, addr) || \
+	    pagedir_get_page(t->pagedir, last_addr) || page_lookup(&t->pages, last_addr)){
 	  f->eax = -1;
 	  break;
 	}
@@ -309,7 +309,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  }
 	for(int i = 0; i < m->cnt; i++)
 	  {
-	    struct page *p = page_lookup(m->addr + i * PGSIZE);
+	    struct page *p = page_lookup(&t->pages, m->addr + i * PGSIZE);
 	    if(pagedir_is_dirty(t->pagedir, p->upage))
 	      file_write_at(p->file, p->upage, PGSIZE, p->ofs);
 	    pagedir_clear_page(t->pagedir, p->upage);

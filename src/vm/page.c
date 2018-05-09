@@ -20,12 +20,12 @@ void page_free(const struct hash_elem *e, void *aux)
   const struct page *p = hash_entry(e, struct page, hash_elem);
   free(p);
 }
-struct page* page_lookup(const uint8_t *upage)
+struct page* page_lookup(struct hash *hash, const uint8_t *upage)
 {
   struct page *p = calloc(sizeof(struct page), 1);
-  struct hash_elem *e; 
+  struct hash_elem *e;
   p->upage = (uint32_t) upage & ~PGMASK;
-  e = hash_find(&thread_current()->pages, &p->hash_elem);
+  e = hash_find(hash, &p->hash_elem);
   free(p);
   return e != NULL ? hash_entry(e, struct page, hash_elem) : NULL;
 }
@@ -50,9 +50,7 @@ void remove_frames(const struct hash *pages, const struct hash *frames)
     struct page *p = hash_entry(hash_cur(&i), struct page, hash_elem);
     struct frame *f = frame_lookup(frames, p->kpage);
     if(f != NULL){
-      //printf("Removing Frame\n");
-      hash_delete(frames, &f->hash_elem);
-      free(f);
+      palloc_free_page(f->kpage);
     }
   }
 }

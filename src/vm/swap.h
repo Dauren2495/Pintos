@@ -10,11 +10,11 @@
 struct swap{
   struct bitmap *bitmap;
   struct block *block;
-  //struct lock lock;
-  struct semaphore sema;
+  struct lock lock;
+  //struct semaphore sema;
 };
 void swap_init(struct swap *);
-void swap_write(struct swap *,uint8_t *);
+void swap_write(struct swap *,struct frame *);
 void swap_read(struct swap *,struct page *);
 void swap_remove(struct swap *, struct hash *);
 // free swap of terminating process

@@ -136,7 +136,7 @@ process_exit (void)
       struct map *m = list_entry(e, struct map, list_elem);
       for(int i = 0; i < m->cnt; i++)
 	{
-	  struct page *p = page_lookup(m->addr + i * PGSIZE);
+	  struct page *p = page_lookup(&t->pages, m->addr + i * PGSIZE);
 	  if(pagedir_is_dirty(t->pagedir, p->upage))
 	    file_write_at(p->file, p->upage, PGSIZE, p->ofs);
 	  pagedir_clear_page(t->pagedir, p->upage);
@@ -154,6 +154,7 @@ process_exit (void)
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = t->pagedir;
+  remove_frames(&t->pages, &frames);
   if (pd != NULL) 
     {
       /* Correct ordering here is crucial.  We must set

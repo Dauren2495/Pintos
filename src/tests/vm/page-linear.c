@@ -26,22 +26,23 @@ test_main (void)
     if (buf[i] != 0x5a)
       fail ("byte %zu != 0x5a", i);
 
-  /* Encrypt zeros. */
+  
+  // Encrypt zeros. 
   msg ("read/modify/write pass one");
   arc4_init (&arc4, "foobar", 6);
   arc4_crypt (&arc4, buf, SIZE);
 
-  /* Decrypt back to zeros. */
+  // Decrypt back to zeros. 
   msg ("read/modify/write pass two");
   arc4_init (&arc4, "foobar", 6);
   arc4_crypt (&arc4, buf, SIZE);
+  
 
   /* Check that it's all 0x5a. */
   msg ("read pass");
   size_t j;
   for (i = 0; i < SIZE; i++)
     if (buf[i] != 0x5a){
-      //printf("----------------- BUF[%d]: %x\n", i, buf[i]); 
       fail ("byte %zu != 0x5a", i);
     }
 }

@@ -10,6 +10,7 @@ struct frame{
   uint32_t *pd;
   uint8_t *upage;
   uint8_t *kpage;
+  struct hash *hash
 };
 
 unsigned frame_hash(const struct hash_elem *, void *);
@@ -18,6 +19,6 @@ void frame_free(const struct hash_elem *, void *);
 struct frame *frame_lookup(struct hash *, const uint8_t *);
 void print_all_frames(const struct hash *);
 void print_clock_list(struct list *);
-void *frame_evict(struct hash* ,  int );
+void *frame_evict(struct list* ,  int );
 
 #endif

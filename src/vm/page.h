@@ -21,7 +21,7 @@ struct page{
 unsigned page_hash(const struct hash_elem *, void*);
 bool page_less(const struct hash_elem *, const struct hash_elem *, void *);
 void page_free(const struct hash_elem *, void *);
-struct page* page_lookup(const uint8_t *);
+struct page* page_lookup(struct hash *, const uint8_t *);
 void print_all_pages(const struct hash *);
 void remove_frames(const struct hash *, const struct hash *);
 

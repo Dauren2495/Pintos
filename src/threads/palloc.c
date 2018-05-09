@@ -144,6 +144,7 @@ palloc_free_multiple (void *pages, size_t page_cnt)
       page += j*PGSIZE;
       struct frame *f = frame_lookup(&frames, page);
       if(f != NULL){
+	list_remove(&f->list_elem);
 	hash_delete(&frames, &f->hash_elem);
 	free(f);
 	}

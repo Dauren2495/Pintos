@@ -588,6 +588,8 @@ next_thread_to_run (void)
 void
 thread_schedule_tail (struct thread *prev)
 {
+  //printf("---------------------------in scheduler ----------------------\n");
+ 
   struct thread *cur = running_thread ();
   
   ASSERT (intr_get_level () == INTR_OFF);

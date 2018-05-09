@@ -25,39 +25,43 @@ void swap_init(struct swap *swap)
   swap->block = block;
   size_t page_cnt  = b_size / BLOCK_PER_PG;
   swap->bitmap = bitmap_create(page_cnt);
-  //lock_init(&swap->lock);
-  sema_init(&swap->sema, 1);
+  lock_init(&swap->lock);
+  //sema_init(&swap->sema, 1);
 }
 
-void swap_write(struct swap *swap, uint8_t *upage)
+void swap_write(struct swap *swap, struct frame *f)
 {
-  sema_down(&swap->sema);
+  //printf("----------------------swap write --------------\n");
+  //sema_down(&swap->sema);
   size_t page_idx = bitmap_scan_and_flip(swap->bitmap, 0, 1, false);
-  sema_up(&swap->sema);
+  //sema_up(&swap->sema);
   size_t block_idx = page_idx * BLOCK_PER_PG;
   // update supplemental page table
-  struct page *p =  page_lookup(upage);
+  struct page *p =  page_lookup(f->hash, f->upage);
   if(!p){
     p = calloc(sizeof(struct page), 1);
-    p->upage =  upage;
-    hash_insert(&thread_current()->pages, &p->hash_elem);
+    p->upage =  f->upage;
+    hash_insert(f->hash, &p->hash_elem);
   }
   p->writable = true;
   p->swap = true;
   p->ofs = block_idx;
+  uint8_t *kpage = f->kpage;
   // write page to swap
   for(size_t i = block_idx; i < block_idx + BLOCK_PER_PG; i++)
     {
-      block_write(swap->block, i, upage);
-      upage += BLOCK_SECTOR_SIZE;
+      //printf("--------------- in loop %i ---------------\n", i);
+      block_write(swap->block, i, kpage);
+      kpage += BLOCK_SECTOR_SIZE;
     }
 }
 void swap_read(struct swap *swap, struct page *p)
 {
+  //sema_down(&swap->sema);
+  //printf("------------------ swap read ----------------\n");
   size_t block_idx = p->ofs;
-  if(p->ofs % BLOCK_PER_PG != 0)
-    printf("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\n");
   size_t page_idx = p->ofs / BLOCK_PER_PG;
+  //xprintf("--------------------read page %d ----------------\n", page_idx);
   uint8_t *kpage = p->kpage;
   for(size_t i = block_idx; i < block_idx + BLOCK_PER_PG; i++)
     {
@@ -65,6 +69,7 @@ void swap_read(struct swap *swap, struct page *p)
       kpage += BLOCK_SECTOR_SIZE;
     }
   bitmap_set(swap->bitmap, page_idx, false);
+  //sema_up(&swap->sema);
 }
 void swap_remove(struct swap *swap, struct hash *pages)
 {
