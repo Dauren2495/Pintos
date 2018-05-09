@@ -147,7 +147,7 @@ page_fault (struct intr_frame *f)
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
-  printf("+++++++++++ THREAD: %d ---------------------Page fault at %x\n",thread_current()->tid, fault_addr);
+  //printf("+++++++++++ THREAD: %d ---------------------Page fault at %x\n",thread_current()->tid, fault_addr);
  
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
