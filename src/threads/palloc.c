@@ -102,6 +102,7 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     {
       if(page_cnt > 1)
 	printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+	
       pages = frame_evict(&frames, page_cnt);
       memset(pages, 0, PGSIZE * page_cnt);
       if (flags & PAL_ASSERT)
@@ -141,13 +142,14 @@ palloc_free_multiple (void *pages, size_t page_cnt)
     uint8_t *page = (uint8_t *)pages;
     for(int j = 0; j < page_cnt; j++){
       //printf("Page Deletetd\n");
-      page += j*PGSIZE;
+      //page += j*PGSIZE;
       struct frame *f = frame_lookup(&frames, page);
       if(f != NULL){
 	list_remove(&f->list_elem);
 	hash_delete(&frames, &f->hash_elem);
 	free(f);
 	}
+      page+=PGSIZE; 
     }
     /********** END OF NEW LINES **********/
   }
