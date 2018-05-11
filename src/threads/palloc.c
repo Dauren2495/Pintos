@@ -100,9 +100,10 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     }
   else 
     {
+      /*
       if(page_cnt > 1)
 	printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
-	
+      */
       pages = frame_evict(&frames, page_cnt);
       memset(pages, 0, PGSIZE * page_cnt);
       if (flags & PAL_ASSERT)
