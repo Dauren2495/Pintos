@@ -59,7 +59,13 @@ struct thread {
 >> A2: In a few paragraphs, describe your code for locating the frame,
 >> if any, that contains the data of a given page.
 
-???????????????????????
+page_lookup(struct hash* hash, const uint8_t* upage)
+does the job:
+     assuming hash is the hash table that holds 'struct page'-s,
+     find a 'struct page' in the hash table that corresponds to upage
+that 'struct page' has a member called kpage which is associated with the
+frame that we need
+
 
 >> A3: How does your code coordinate accessed and dirty bits between
 >> kernel and user virtual addresses that alias a single frame, or
@@ -72,14 +78,20 @@ struct thread {
 >> A4: When two user processes both need a new frame at the same time,
 >> how are races avoided?
 
-?????????????????????????
+when there is no free frame available - frame_evict() is called,
+inside of which 'swap.lock' is used, which is the dedicated lock
+for avoiding the race.
 
 ---- RATIONALE ----
 
 >> A5: Why did you choose the data structure(s) that you did for
 >> representing virtual-to-physical mappings?
 
-?????????????????????????
+hash table achieves high performance when an element is searched,
+removed, or inserted. At the same time it is not hard to use it, and
+hash table library is already given.
+
+struct page is a single structure that contains all the information needed.
 
 		       PAGING TO AND FROM DISK
 		       =======================
@@ -90,7 +102,7 @@ struct thread {
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-holds info about a swap:
+holds info about swaps:
 struct swap{
   struct bitmap *bitmap;
   struct block *block;
@@ -195,7 +207,11 @@ struct thread{
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
-???????????????????????????????????????
+each thread maintains list of mappings.
+each 'struct page' holds information about whether it is
+     associated with a file or not;
+it allows to tell which file to swap to or read from;
+if 'file' member is null - page is not mapped
 
 >> C3: Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
@@ -213,7 +229,12 @@ Addresses of the start and the end of a mapping are checked:
 >> implementation either does or does not share much of the code for
 >> the two situations.
 
-????????????????????????????????
+it was possible to utilize existing structures,
+just some members needed to be added to them.
+
+when page_fault occurs, struct page is just checked
+if it is mapped to a file. If that is the case, page is read from
+file with use of existing functions like file_read.
 
 			   SURVEY QUESTIONS
 			   ================
