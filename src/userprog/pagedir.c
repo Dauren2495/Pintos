@@ -119,7 +119,9 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
       // change kernel pagedir also
       struct frame *f = calloc(sizeof(struct frame), 1);
       f->kpage = kpage;
+      lock_acquire(&swap.lock);
       hash_insert(&frames, &f->hash_elem);
+      lock_release(&swap.lock);
       f->hash = &thread_current()->pages;
       f->pd = pd;
       f->upage = upage;
