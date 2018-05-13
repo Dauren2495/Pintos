@@ -280,7 +280,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   int i;
   
   /****************NEW LINES ***************/
-
+  hash_init(&t->pages, page_hash, page_less, NULL);
+ 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL){ 
@@ -325,7 +326,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (file_name);
-  hash_init(&t->pages, page_hash, page_less, NULL);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -585,8 +585,17 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+
+  struct page *p = calloc(sizeof(struct page), 1);
+  p->swap = false;
+  p->upage = ((uint8_t*) PHYS_BASE) - PGSIZE;
+  p->kpage = kpage;
+  p->file = NULL;
+  p->zero_bytes = PGSIZE;
+  p->writable = true;
+  hash_insert(&thread_current()->pages, &p->hash_elem);
+  
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);

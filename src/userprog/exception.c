@@ -195,12 +195,9 @@ page_fault (struct intr_frame *f)
 	  palloc_free_page (kpage);
 	  kill(f); 
 	}
-      //free(p);
-      return;
     }
   else if((unsigned)(f->esp - fault_addr) < 4096 && PHYS_BASE > fault_addr && fault_addr > stack_end)
     {
-      //printf("Get stack\n");
       void *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
       if (!kpage)
         kill(f);
@@ -210,6 +207,14 @@ page_fault (struct intr_frame *f)
           kill(f); 
 	}
       struct thread *t = thread_current();
+
+      struct page *p = calloc(sizeof(struct page), 1);
+      p->upage = upage;
+      p->kpage = kpage;
+      p->zero_bytes = PGSIZE;
+      p->writable = true;
+      hash_insert(&t->pages, &p->hash_elem);
+      
       upage += PGSIZE;
       while(!pagedir_get_page(t->pagedir, upage))
 	{
@@ -223,9 +228,6 @@ page_fault (struct intr_frame *f)
 	  hash_insert(&t->pages, &p->hash_elem);
 	  upage += PGSIZE;
 	}
-      //if(p)
-      //free(p);
-      return;
     }
   else
     {
