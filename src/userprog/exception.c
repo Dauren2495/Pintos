@@ -12,7 +12,8 @@
 #include "threads/pte.h"
 
 extern struct swap swap;
-#define STACK_SIZE 1024 * 1024
+uint8_t* stack_end = (uint8_t*)PHYS_BASE - PGSIZE;
+
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
@@ -162,7 +163,6 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  void* stack_end = (unsigned)PHYS_BASE - STACK_SIZE;
   uint8_t *upage = (uint32_t) fault_addr & ~PGMASK;
   
   struct page *p = page_lookup(&thread_current()->pages, upage);
@@ -196,7 +196,7 @@ page_fault (struct intr_frame *f)
 	  kill(f); 
 	}
     }
-  else if((unsigned)(f->esp - fault_addr) < 4096 && PHYS_BASE > fault_addr && fault_addr > stack_end)
+  else if(((unsigned)(f->esp - fault_addr) < PGSIZE) || (PHYS_BASE > fault_addr && fault_addr > stack_end))
     {
       void *kpage = palloc_get_page (PAL_USER | PAL_ZERO );
       if (!kpage)
@@ -214,20 +214,9 @@ page_fault (struct intr_frame *f)
       p->zero_bytes = PGSIZE;
       p->writable = true;
       hash_insert(&t->pages, &p->hash_elem);
-      
-      upage += PGSIZE;
-      while(!pagedir_get_page(t->pagedir, upage))
-	{
-	  struct page *p = calloc(sizeof(struct page), 1);
-	  p->swap = false;
-	  p->upage = upage;
-	  p->file = NULL;
-	  p->read_bytes = 0;
-	  p->zero_bytes = PGSIZE;
-	  p->writable = true;
-	  hash_insert(&t->pages, &p->hash_elem);
-	  upage += PGSIZE;
-	}
+
+      if(fault_addr < stack_end)
+	stack_end = fault_addr;     
     }
   else
     {

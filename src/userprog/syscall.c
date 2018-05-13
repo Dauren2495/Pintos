@@ -13,8 +13,9 @@
 #include "threads/palloc.h"
 #include "vm/page.h"
 
+
 static void syscall_handler (struct intr_frame *);
-struct semaphore fs_sema;
+extern uint8_t* stack_end;
 
 void
 syscall_init (void) 
@@ -24,11 +25,14 @@ syscall_init (void)
 
 bool valid_byte(void *p){
   struct thread *t = thread_current();
-  if(p >= PHYS_BASE || p == NULL)
+  if(PHYS_BASE > p && p > stack_end)
+    return true;
+  else if(p >= PHYS_BASE || p == NULL)
     return false;
-  if(!pagedir_get_page(t->pagedir,p) && !page_lookup(&t->pages, p))
+  else if(!pagedir_get_page(t->pagedir,p) && !page_lookup(&t->pages, p))
     return false;
-  return true;
+  else
+    return true;
 }
 
 void exit(void){
