@@ -142,13 +142,11 @@ palloc_free_multiple (void *pages, size_t page_cnt)
      /************* NEW LINES **************/
     uint8_t *page = (uint8_t *)pages;
     for(int j = 0; j < page_cnt; j++){
-      //printf("Page Deletetd\n");
-      //page += j*PGSIZE;
       struct frame *f = frame_lookup(&frames, page);
-      if(f != NULL){
-	list_remove(&f->list_elem);
-	hash_delete(&frames, &f->hash_elem);
-	free(f);
+      if(f != NULL)
+	{
+	  hash_delete(&frames, &f->hash_elem);
+	  free(f);
 	}
       page+=PGSIZE; 
     }

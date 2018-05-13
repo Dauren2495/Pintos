@@ -12,11 +12,9 @@
 
 static uint32_t *active_pd (void);
 static void invalidate_pagedir (uint32_t *);
-struct hash frames;
-struct list clock;
-struct swap swap;
-extern long long total_ticks;
-bool f_start = false;
+
+extern struct hash frames;
+extern struct swap swap;
 
 /* Creates a new page directory that has mappings for kernel
    virtual addresses, but none for user virtual addresses.
@@ -113,29 +111,18 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
   ASSERT (vtop (kpage) >> PTSHIFT < init_ram_pages);
   ASSERT (pd != init_page_dir);
 
-  if(!f_start){
-    hash_init(&frames, frame_hash, frame_less, NULL);
-    list_init(&clock);
-    swap_init(&swap);
-    f_start = true;
-  }
   pte = lookup_page (pd, upage, true);
   if (pte != NULL) 
     {
       ASSERT ((*pte & PTE_P) == 0);
       *pte = pte_create_user (kpage, writable);
       // change kernel pagedir also
-      struct frame *f = frame_lookup(&frames, (uint8_t*) kpage);
-      if(f == NULL)
-	{
-	  f = calloc(sizeof(struct frame), 1);
-	  f->kpage = kpage;
-	  hash_insert(&frames, &f->hash_elem);
-	}
+      struct frame *f = calloc(sizeof(struct frame), 1);
+      f->kpage = kpage;
+      hash_insert(&frames, &f->hash_elem);
       f->hash = &thread_current()->pages;
       f->pd = pd;
       f->upage = upage;
-      list_push_back(&clock, &f->list_elem);
       return true;
     }
   else

@@ -62,7 +62,7 @@ void print_clock_list(struct list *list)
 }
 void *frame_evict(struct hash *frames, int page_cnt)
 {
-  struct list_elem *e;
+  //printf("---------------------------evict_frame------------------\n");
   void *kpage =  NULL;
   lock_acquire(&swap.lock);
   struct hash_iterator i;
@@ -74,11 +74,12 @@ void *frame_evict(struct hash *frames, int page_cnt)
 	if(pagedir_is_accessed(f->pd, f->upage))
 	  pagedir_set_accessed(f->pd, f->upage, false);
 	else{
-	  hash_delete(frames, &f->hash_elem);
 	  swap_write(&swap, f);
 	  pagedir_clear_page(f->pd, f->upage);
 	  kpage = (void*)f->kpage;
+	  hash_delete(frames, &f->hash_elem);
 	  lock_release(&swap.lock);
+	  free(f);
 	  break;
 	  }
       }

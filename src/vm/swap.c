@@ -76,7 +76,6 @@ void swap_read(struct swap *swap, struct page *p)
 }
 void swap_remove(struct swap *swap, struct hash *pages)
 {
-  printf("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n");
   struct hash_iterator i;
   hash_first(&i, pages);
   while(hash_next(&i)){

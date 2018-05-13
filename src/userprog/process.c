@@ -171,8 +171,7 @@ process_exit (void)
       pagedir_destroy (pd);
       lock_release(&swap.lock);
     }
-  //printf(" -----------------size of hash is %d ------------------\n", hash_size(&frames));
-  //swap_remove(&swap, &t->pages);
+  swap_remove(&swap, &t->pages);
   hash_destroy(&t->pages, page_free);
   //printf("+++++++++++++++++++++++++++++++++++++++\n");
 }
