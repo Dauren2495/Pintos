@@ -74,8 +74,11 @@ void *frame_evict(struct hash *frames, int page_cnt)
 	if(pagedir_is_accessed(f->pd, f->upage))
 	  pagedir_set_accessed(f->pd, f->upage, false);
 	else{
-	  swap_write(&swap, f);
-	  pagedir_clear_page(f->pd, f->upage);
+	  struct page *p = page_lookup(f->hash, f->upage);
+	  if(p->writable)
+	    swap_write(&swap, f);
+	  else
+	    pagedir_clear_page(f->pd, f->upage);
 	  kpage = (void*)f->kpage;
 	  hash_delete(frames, &f->hash_elem);
 	  lock_release(&swap.lock);

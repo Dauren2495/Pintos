@@ -156,7 +156,14 @@ of deadlock.
 >> the page during the eviction process?  How do you avoid a race
 >> between P evicting Q's frame and Q faulting the page back in?
 
-????????????????????????
+To ensure that Q cannot access or modify the page during the eviction
+process we clear the present bit of page's PTE in page table. Thus,
+next time Q wants to access this page there will occur page fault.
+Now, to exlude the possibility of race between Q reading the page
+back from the swap and P copying the page to the swap, we use one
+single global lock which makes sure that Q cannot read page back
+before P transfers it to the swap.
+
 
 >> B7: Suppose a page fault in process P causes a page to be read from
 >> the file system or swap.  How do you ensure that a second process Q

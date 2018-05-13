@@ -26,7 +26,6 @@ void swap_init(struct swap *swap)
   size_t page_cnt  = b_size / BLOCK_PER_PG;
   swap->bitmap = bitmap_create(page_cnt);
   lock_init(&swap->lock);
-  //sema_init(&swap->sema, 1);
 }
 
 void swap_write(struct swap *swap, struct frame *f)
@@ -38,6 +37,8 @@ void swap_write(struct swap *swap, struct frame *f)
   ASSERT(f->kpage == p->kpage);
   p->swap = true;
   p->ofs = block_idx;
+  pagedir_clear_page(f->pd, f->upage);
+  p->kpage = NULL;
   uint8_t *kpage = f->kpage;
   // write page to swap
   for(size_t i = block_idx; i < block_idx + BLOCK_PER_PG; i++)
@@ -48,6 +49,7 @@ void swap_write(struct swap *swap, struct frame *f)
 }
 void swap_read(struct swap *swap, struct page *p)
 {
+  lock_acquire(&swap->lock);
   size_t block_idx = p->ofs;
   size_t page_idx = p->ofs / BLOCK_PER_PG;
   uint8_t *kpage = p->kpage;
@@ -57,6 +59,7 @@ void swap_read(struct swap *swap, struct page *p)
       kpage += BLOCK_SECTOR_SIZE;
     }
   bitmap_set(swap->bitmap, page_idx, false);
+  lock_release(&swap->lock);
 }
 void swap_remove(struct swap *swap, struct hash *pages)
 {
