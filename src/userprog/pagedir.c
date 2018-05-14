@@ -125,6 +125,7 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
       f->hash = &thread_current()->pages;
       f->pd = pd;
       f->upage = upage;
+      f->tid = thread_current()->tid;
       return true;
     }
   else

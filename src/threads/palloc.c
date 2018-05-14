@@ -11,10 +11,10 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "vm/frame.h"
+#include "vm/swap.h"
 
 extern struct hash frames;
-extern struct list clock;
-size_t user_base;
+extern struct swap swap;
 
 /* Page allocator.  Hands out memory in page-size (or
    page-multiple) chunks.  See malloc.h for an allocator that
@@ -65,7 +65,6 @@ palloc_init (size_t user_page_limit)
   init_pool (&kernel_pool, free_start, kernel_pages, "kernel pool");
   init_pool (&user_pool, free_start + kernel_pages * PGSIZE,
              user_pages, "user pool");
-  user_base = user_pool.base;
 }
 
 /* Obtains and returns a group of PAGE_CNT contiguous free pages.
@@ -100,12 +99,10 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     }
   else 
     {
-      /*
-      if(page_cnt > 1)
-	printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
-      */
+      lock_acquire(&swap.lock);
       pages = frame_evict(&frames, page_cnt);
       memset(pages, 0, PGSIZE * page_cnt);
+      lock_release(&swap.lock);
       if (flags & PAL_ASSERT)
         PANIC ("palloc_get: out of pages");
     }

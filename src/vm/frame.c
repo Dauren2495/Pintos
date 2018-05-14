@@ -50,38 +50,30 @@ void print_all_frames(const struct hash *hash)
     printf("frame at address %x\n", f->kpage);
   }
 }
-void print_clock_list(struct list *list)
-{
-  struct list_elem *e;
-  int j = 0;
-  for(e = list_begin(list); e != list_end(list); e = list_next(e))
-  {
-    struct frame *f  = list_entry(e, struct frame, list_elem);
-    printf("Element %d with age %lu\n", ++j, f->age);
-  }
-}
+
 void *frame_evict(struct hash *frames, int page_cnt)
 {
-  //printf("---------------------------evict_frame------------------\n");
   void *kpage =  NULL;
-  lock_acquire(&swap.lock);
+  //lock_acquire(&swap.lock);
   struct hash_iterator i;
   hash_first(&i, frames);
   while(!kpage){
     while(hash_next(&i))
       {
 	struct frame *f = hash_entry(hash_cur(&i), struct frame, hash_elem);
+	struct page *p = page_lookup(f->hash, f->upage);
 	if(pagedir_is_accessed(f->pd, f->upage))
 	  pagedir_set_accessed(f->pd, f->upage, false);
 	else{
-	  struct page *p = page_lookup(f->hash, f->upage);
-	  if(p->writable)
+	  printf("--TID: %d ------EVICTION PAGE -> TID: %d ->%x ------------\n", \
+		 thread_current()->tid, f->tid, f->upage);
+	   if(p->writable)
 	    swap_write(&swap, f);
 	  else
 	    pagedir_clear_page(f->pd, f->upage);
 	  kpage = (void*)f->kpage;
 	  hash_delete(frames, &f->hash_elem);
-	  lock_release(&swap.lock);
+	  //lock_release(&swap.lock);
 	  free(f);
 	  break;
 	  }

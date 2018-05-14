@@ -76,6 +76,33 @@ struct fd_ *search_fd(struct thread *t, int fd){
       return file_d;
 }
 
+void pin_page(uint32_t start, unsigned size)
+{
+  uint32_t end = start + size;
+  int count = (end / PGSIZE) - (start / PGSIZE) + 1;
+  struct page *p;
+  printf("----TID: %d -> BUFFER: %x-to-%x--------\n", thread_current()->tid, start, end);
+  for(int i = 0; i < count; i++)
+    {
+      p = page_lookup(&thread_current()->pages, start + i * PGSIZE);
+      p->lock = true;
+      printf("++TID: %d +++++ PINNED PAGE: %x ++++++++++++++++\n",thread_current()->tid, start + i*PGSIZE);
+    }
+  //printf("-END OF --- TID: %d ->  BUFFER: %x-to-%x--------\n", thread_current()->tid, start, end);
+}
+
+void unpin_page(uint32_t start, unsigned size)
+{
+  uint32_t end = start + size;
+  int count = (end / PGSIZE) - (start / PGSIZE) + 1;
+  struct page *p;
+  for(int i = 0; i < count; i++)
+    {
+      p = page_lookup(&thread_current()->pages, start + i * PGSIZE);
+      p->lock = false;
+    }
+}
+
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
@@ -107,7 +134,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const void **buffer = (p + 2);
 	unsigned size = *(p + 3);
 	check_buffer(*buffer, size);
-	
+	//pin_page(*buffer, size);
+	//pin_page(f->esp, 0);
 	if(fd == 0)
 	  ;//writing to stdin
 	else if(fd == 1){    
@@ -116,10 +144,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 	else {
 	  struct fd_* file_d = search_fd(t, fd);
 	  if(file_d != NULL)
-	      f->eax = file_write(file_d->file, *buffer, size);
+	    f->eax = file_write(file_d->file, *buffer, size);
 	  else
 	    f->eax = -1;
 	}
+	printf("---------FINISH TID: %d ----------------\n", t->tid);
+	//unpin_page(*buffer, size);
+	//unpin_page(f->esp, 0);
 	break;
       }
     case SYS_CREATE:
@@ -182,6 +213,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const void **buffer = p + 2;
 	unsigned size = *(p + 3);
 	check_buffer(*buffer, size);
+	//pin_page(*buffer, size);
+	//pin_page(f->esp, 0);
 	if(fd == 0){
 	  f->eax = input_getc();
 	}
@@ -191,8 +224,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	    f->eax = file_read(file_d->file, *buffer, size);
 	  else
 	    f->eax = -1;
-	  break;
 	}
+	printf("---------FINISH TID: %d ----------------\n", t->tid);
+	//unpin_page(*buffer, size);
+	//unpin_page(f->esp, 0);
 	break;
       }
     case SYS_REMOVE:
