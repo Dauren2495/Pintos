@@ -62,7 +62,7 @@ void *frame_evict(struct hash *frames, int page_cnt)
       {
 	struct frame *f = hash_entry(hash_cur(&i), struct frame, hash_elem);
 	struct page *p = page_lookup(f->hash, f->upage);
-	if(pagedir_is_accessed(f->pd, f->upage))
+	if(p->lock || pagedir_is_accessed(f->pd, f->upage))
 	  pagedir_set_accessed(f->pd, f->upage, false);
 	else{
 	  printf("--TID: %d ------EVICTION PAGE -> TID: %d ->%x ------------\n", \

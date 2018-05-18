@@ -12,10 +12,13 @@
 #include "threads/init.h"
 #include "threads/palloc.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 
 
 static void syscall_handler (struct intr_frame *);
 extern uint8_t* stack_end;
+extern struct swap swap;
+
 
 void
 syscall_init (void) 
@@ -86,8 +89,33 @@ void pin_page(uint32_t start, unsigned size)
     {
       p = page_lookup(&thread_current()->pages, start + i * PGSIZE);
       p->lock = true;
-      printf("++TID: %d +++++ PINNED PAGE: %x ++++++++++++++++\n",thread_current()->tid, start + i*PGSIZE);
+
+      if(!pagedir_get_page(thread_current()->pagedir, p->upage))
+	{
+	  void *kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+	  
+	  p->kpage = (uint8_t*) kpage;
+	  /* Load this page. */
+	  if(p->swap)
+	    swap_read(&swap, p);
+	  else if(p->file != NULL)
+	    {
+	      file_seek(p->file, p->ofs);
+	      if (file_read (p->file, kpage, p->read_bytes) != (int) p->read_bytes)
+		{
+		  palloc_free_page (kpage);
+		  //kill(f); 
+		}
+	      memset (kpage + p->read_bytes, 0, p->zero_bytes);
+	    }
+	  else
+	    memset (kpage + p->read_bytes, 0, p->zero_bytes);
+	  /* Add the page to the process's address space. */
+	  pagedir_set_page(thread_current()->pagedir, (void*)p->upage, kpage,p->writable);
+	  printf("++TID: %d +++++ PINNED PAGE: %x ++++++++++++++++\n",thread_current()->tid, start + i*PGSIZE);
+	}
     }
+  
   //printf("-END OF --- TID: %d ->  BUFFER: %x-to-%x--------\n", thread_current()->tid, start, end);
 }
 
@@ -134,7 +162,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const void **buffer = (p + 2);
 	unsigned size = *(p + 3);
 	check_buffer(*buffer, size);
-	//pin_page(*buffer, size);
+	pin_page(*buffer, size);
 	//pin_page(f->esp, 0);
 	if(fd == 0)
 	  ;//writing to stdin
@@ -149,7 +177,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	    f->eax = -1;
 	}
 	printf("---------FINISH TID: %d ----------------\n", t->tid);
-	//unpin_page(*buffer, size);
+	unpin_page(*buffer, size);
 	//unpin_page(f->esp, 0);
 	break;
       }
@@ -213,7 +241,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const void **buffer = p + 2;
 	unsigned size = *(p + 3);
 	check_buffer(*buffer, size);
-	//pin_page(*buffer, size);
+	pin_page(*buffer, size);
 	//pin_page(f->esp, 0);
 	if(fd == 0){
 	  f->eax = input_getc();
@@ -226,7 +254,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	    f->eax = -1;
 	}
 	printf("---------FINISH TID: %d ----------------\n", t->tid);
-	//unpin_page(*buffer, size);
+	unpin_page(*buffer, size);
 	//unpin_page(f->esp, 0);
 	break;
       }
