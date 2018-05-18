@@ -84,10 +84,21 @@ void pin_page(uint32_t start, unsigned size)
   uint32_t end = start + size;
   int count = (end / PGSIZE) - (start / PGSIZE) + 1;
   struct page *p;
-  printf("----TID: %d -> BUFFER: %x-to-%x--------\n", thread_current()->tid, start, end);
+  struct thread *t = thread_current();
+  printf("----TID: %d -> BUFFER: %x-to-%x--------\n", t->tid, start, end);
   for(int i = 0; i < count; i++)
     {
-      p = page_lookup(&thread_current()->pages, start + i * PGSIZE);
+      p = page_lookup(&t->pages, start + i * PGSIZE);
+      if(!p)
+	{
+	  p = calloc(sizeof(struct page), 1);
+	  p->upage = (start + i * PGSIZE) & !PGMASK;
+	  p->zero_bytes = PGSIZE;
+	  p->writable = true;
+	  hash_insert(&t->pages, &p->hash_elem);
+	  if(p->upage < stack_end)
+	    stack_end = p->upage;     
+	}
       p->lock = true;
 
       if(!pagedir_get_page(thread_current()->pagedir, p->upage))
@@ -110,7 +121,6 @@ void pin_page(uint32_t start, unsigned size)
 	    }
 	  else
 	    memset (kpage + p->read_bytes, 0, p->zero_bytes);
-	  /* Add the page to the process's address space. */
 	  pagedir_set_page(thread_current()->pagedir, (void*)p->upage, kpage,p->writable);
 	  printf("++TID: %d +++++ PINNED PAGE: %x ++++++++++++++++\n",thread_current()->tid, start + i*PGSIZE);
 	}
