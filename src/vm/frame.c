@@ -65,9 +65,7 @@ void *frame_evict(struct hash *frames, int page_cnt)
 	if(p->lock || pagedir_is_accessed(f->pd, f->upage))
 	  pagedir_set_accessed(f->pd, f->upage, false);
 	else{
-	  printf("--TID: %d ------EVICTION PAGE -> TID: %d ->%x ------------\n", \
-		 thread_current()->tid, f->tid, f->upage);
-	   if(p->writable)
+	  if(p->writable)
 	    swap_write(&swap, f);
 	  else
 	    pagedir_clear_page(f->pd, f->upage);

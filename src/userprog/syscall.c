@@ -85,7 +85,6 @@ void pin_page(uint32_t start, unsigned size)
   int count = (end / PGSIZE) - (start / PGSIZE) + 1;
   struct page *p;
   struct thread *t = thread_current();
-  printf("----TID: %d -> BUFFER: %x-to-%x--------\n", t->tid, start, end);
   for(int i = 0; i < count; i++)
     {
       p = page_lookup(&t->pages, start + i * PGSIZE);
@@ -101,12 +100,11 @@ void pin_page(uint32_t start, unsigned size)
 	}
       p->lock = true;
 
-      if(!pagedir_get_page(thread_current()->pagedir, p->upage))
+      if(!pagedir_get_page(t->pagedir, p->upage))
 	{
 	  void *kpage = palloc_get_page (PAL_USER | PAL_ZERO);
 	  
 	  p->kpage = (uint8_t*) kpage;
-	  /* Load this page. */
 	  if(p->swap)
 	    swap_read(&swap, p);
 	  else if(p->file != NULL)
@@ -115,18 +113,14 @@ void pin_page(uint32_t start, unsigned size)
 	      if (file_read (p->file, kpage, p->read_bytes) != (int) p->read_bytes)
 		{
 		  palloc_free_page (kpage);
-		  //kill(f); 
 		}
 	      memset (kpage + p->read_bytes, 0, p->zero_bytes);
 	    }
 	  else
 	    memset (kpage + p->read_bytes, 0, p->zero_bytes);
-	  pagedir_set_page(thread_current()->pagedir, (void*)p->upage, kpage,p->writable);
-	  printf("++TID: %d +++++ PINNED PAGE: %x ++++++++++++++++\n",thread_current()->tid, start + i*PGSIZE);
+	  pagedir_set_page(t->pagedir, (void*)p->upage, kpage,p->writable);
 	}
     }
-  
-  //printf("-END OF --- TID: %d ->  BUFFER: %x-to-%x--------\n", thread_current()->tid, start, end);
 }
 
 void unpin_page(uint32_t start, unsigned size)
@@ -186,7 +180,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  else
 	    f->eax = -1;
 	}
-	printf("---------FINISH TID: %d ----------------\n", t->tid);
 	unpin_page(*buffer, size);
 	//unpin_page(f->esp, 0);
 	break;
@@ -263,7 +256,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  else
 	    f->eax = -1;
 	}
-	printf("---------FINISH TID: %d ----------------\n", t->tid);
 	unpin_page(*buffer, size);
 	//unpin_page(f->esp, 0);
 	break;
