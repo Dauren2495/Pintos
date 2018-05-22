@@ -391,6 +391,21 @@ syscall_handler (struct intr_frame *f UNUSED)
 	free(m);
 	break;
       }
+
+
+
+
+    case SYS_MKDIR:
+      {
+	check_string(*(p+1));
+	const char* dir = *(p+1);
+	if (!(*dir)) {
+	  f->eax=0;
+	  break;
+	}
+
+
+      }
       
     }
 }

@@ -8,10 +8,21 @@
 
 struct inode_disk
   {
-    block_sector_t start;               /* First data sector. */
-    off_t length;                       /* File size in bytes. */
-    unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
+    /* OLD: */
+    /* block_sector_t start;               /\* First data sector. *\/ */
+    /* off_t length;                       /\* File size in bytes. *\/ */
+    /* unsigned magic;                     /\* Magic number. *\/ */
+    /* uint32_t unused[125];               /\* Not used. *\/ */
+
+    /* NEW: */
+    //pointers to sectors where content is located
+    block_sector_t direct[124]; //size of whole struct must be 128
+    //pointers to pointers
+    block_sector_t indirect;
+    //pointers to pointers to pointers
+    block_sector_t d_indirect; 
+    unsigned magic;
+    off_t length;
   };
 struct inode 
   {
