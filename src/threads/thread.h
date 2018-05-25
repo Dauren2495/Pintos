@@ -8,6 +8,7 @@
 #include "threads/synch.h"
 #include <hash.h>
 #include "threads/palloc.h"
+#include "filesys/directory.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -105,9 +106,6 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
-    /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
-
     /******* NEW VARIABLES *********/
     bool user;
     bool spawn_user;
@@ -123,7 +121,12 @@ struct thread
     struct list_elem child_elem;
     struct hash pages;
     struct list map;
+
+    struct dir* cwd;
     /**********END OF NEW **********/
+
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
 };
 
 /********** NEW LINES **********/

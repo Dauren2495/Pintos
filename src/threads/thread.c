@@ -15,6 +15,7 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+#include "filesys/directory.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -98,6 +99,7 @@ thread_init (void)
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
+  //initial_thread->cwd = dir_open_root();
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
 }
@@ -537,6 +539,19 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->children);
   list_init(&t->files);
   list_init(&t->map);
+  /*
+  if(t==t->parent){
+    printf("\nt->cwd=dir_open_root()\n");
+    //the very first thread
+    t->cwd = dir_open_root();
+    printf("returned from dir_open_root()\n\n");
+  }
+  else{
+    printf("\nt->cwd=t->parent->cwd\n\n");
+    t->cwd = t->parent->cwd;
+  }
+*/
+  t->cwd = t->parent->cwd;
   /***********END OF NEW LINES ***********/
   intr_set_level (old_level);
   

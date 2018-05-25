@@ -6,6 +6,7 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "threads/thread.h"
 
 /* Partition that contains the file system. */
 struct block *fs_device;
@@ -24,6 +25,8 @@ filesys_init (bool format)
   inode_init ();
   free_map_init ();
 
+  thread_current()->cwd  = dir_open_root();
+  
   if (format) 
     do_format ();
 
