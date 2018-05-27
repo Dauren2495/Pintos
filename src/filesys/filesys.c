@@ -55,11 +55,16 @@ filesys_create (struct dir* dir, const char *name,
   char* rest = path;
   char* token;
   //struct dir* parent_dir = dir;
+  bool need_to_close_dir = false;
+  if(*name == (char)'/') {
+    need_to_close_dir = true;
+    dir = dir_open_root();
+  }
   for( token = strtok_r(path, "/", &rest); token!=NULL;
        token = strtok_r(NULL, "/", &rest) ) {
     //printf("\ntoken:%s\n", token);
     //printf("rest:%s\n", rest);
-    if ((*rest) == NULL) {
+    if ((*rest) == '\0') {
       break;
     }
     //printf("\nnow token is: %s\n", token);
@@ -71,6 +76,9 @@ filesys_create (struct dir* dir, const char *name,
       //printf("directory:%s\n", token);
       free(path);
       return false;
+    }
+    if(need_to_close_dir){
+      dir_close(dir);
     }
     dir = dir_open(dir_inodep);
     if (!dir) return false;
@@ -97,9 +105,15 @@ filesys_create (struct dir* dir, const char *name,
   //printf("(filesys_create) success:%d\n", success);
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
+
   //dir_close (dir); //should we close it? if we do - t->cwd is lost
   //it was here by default
+  //try:
+  if(need_to_close_dir) {
+    dir_close(dir);
+  }
 
+  
   free(path);
   //printf("\nreturning from filesys_create, success:%d\n\n", success);
   return success;
@@ -113,14 +127,80 @@ filesys_create (struct dir* dir, const char *name,
 struct file *
 filesys_open (const char *name)
 {
-  struct dir *dir = thread_current()->cwd;
+  
+  char* path = malloc(strlen(name)+1);
+  strlcpy(path, name, strlen(name)+1);
+  char* rest = path;
+  char* token;
+  //struct dir* parent_dir = dir;
+  bool need_to_close_dir = false;
+  struct dir* dir;
+  if(*name == '/') {
+    need_to_close_dir = true;
+    dir = dir_open_root();
+  }
+  else {
+    dir = thread_current()->cwd;
+  }
+  for( token = strtok_r(path, "/", &rest); token!=NULL;
+       token = strtok_r(NULL, "/", &rest) ) {
+    //printf("\ntoken:%s\n", token);
+    //printf("rest:%s\n", rest);
+    if ((*rest) == '\0') {
+      break;
+    }
+    //printf("\nnow token is: %s\n", token);
+    struct inode* dir_inodep;
+    //printf("dir->inode->sector:%d\n", dir->inode->sector);
+    if(!dir_lookup(dir, token, &dir_inodep)){
+      
+      //printf("returning false bcs directory doesn't exist\n");
+      //printf("directory:%s\n", token);
+      free(path);
+      printf("FAIL because directory is not found\n");
+      return NULL;
+    }
+    if(need_to_close_dir){
+      dir_close(dir);
+    }
+    dir = dir_open(dir_inodep);
+    if (!dir) {
+      free(path);
+      printf("FAIL because dir==NULL\n");
+      return NULL;
+    }
+  }
+  
+  char * file_name = token;
   struct inode *inode = NULL;
   //printf("\n(filesys_open) dir->inode->sector:%d\n",
   //	 dir->inode->sector);
-  if (dir != NULL)
-    dir_lookup (dir, name, &inode);
-  //dir_close (dir); //why we need it?
-
+  
+  if(*path=='/' && *file_name=='\0' && *(path+1)=='\0') {
+    /*file_name is root*/
+    if (dir->inode->sector == ROOT_DIR_SECTOR) {
+      //printf("dir->inode->sector == ROOT_DIR_SECTOR\n");
+      file_name = ".";
+    }
+    else {
+      free(path);
+      return NULL;
+    }
+  }
+  //printf("file_name:%s\n", file_name);
+  if (dir != NULL){
+    dir_lookup (dir, file_name, &inode);
+    //printf("(filesys_open) file:%s is found to have inode->sector:%d\n",
+    //	   file_name, inode->sector);
+  }
+  else {
+    free(path);
+    return NULL;
+  }
+  if (need_to_close_dir) {
+    dir_close (dir);
+  }
+  free(path);
   return file_open (inode);
 }
 
@@ -131,10 +211,66 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-  struct dir *dir = thread_current()->cwd;
-  bool success = dir != NULL && dir_remove (dir, name);
-  dir_close (dir); 
 
+  char* path = malloc(strlen(name)+1);
+  strlcpy(path, name, strlen(name)+1);
+  char* rest = path;
+  char* token;
+  //struct dir* parent_dir = dir;
+  bool need_to_close_dir = false;
+  struct dir* dir;
+  if(*name == '/') {
+    need_to_close_dir = true;
+    dir = dir_open_root();
+  }
+  else {
+    dir = thread_current()->cwd;
+  }
+  for( token = strtok_r(path, "/", &rest); token!=NULL;
+       token = strtok_r(NULL, "/", &rest) ) {
+    //printf("\ntoken:%s\n", token);
+    //printf("rest:%s\n", rest);
+    if ((*rest) == '\0') {
+      break;
+    }
+    //printf("\nnow token is: %s\n", token);
+    struct inode* dir_inodep;
+    //printf("dir->inode->sector:%d\n", dir->inode->sector);
+    if(!dir_lookup(dir, token, &dir_inodep)){
+      
+      //printf("returning false bcs directory doesn't exist\n");
+      //printf("directory:%s\n", token);
+      free(path);
+      return false;
+    }
+    if(need_to_close_dir){
+      dir_close(dir);
+    }
+    dir = dir_open(dir_inodep);
+    if (!dir) {
+      free(path);
+      return false;
+    }
+  }
+  
+  char * file_name = token;
+
+  //printf("REACHED HERE, file_name:%s, path:%s\n",
+  //	 file_name, path);
+  bool success=true;
+  if(!file_name && (*path=='/')) {
+    /*cannot remove root*/
+    //printf("cannot remove root\n");
+    success = false;
+  }
+  success = success && (dir != NULL) && dir_remove (dir, file_name);
+  
+  if(dir && need_to_close_dir) {
+    dir_close (dir); 
+  }
+  
+
+  free(path);
   return success;
 }
 

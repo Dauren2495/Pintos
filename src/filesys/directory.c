@@ -27,8 +27,8 @@ dir_create (block_sector_t sector, size_t entry_cnt,
     parent.inode_sector = parent_sector;
     self.name[0]=parent.name[0]=parent.name[1]='.';
     self.name[1]=parent.name[2]='\0';
-    self.in_use = parent.in_use = true;
-    self.is_dir = parent.is_dir = true;
+    //self.in_use = parent.in_use = true;
+    //self.is_dir = parent.is_dir = true;
     int entry_size = sizeof (struct dir_entry);
     //printf("(dir_create) self.inode_sector:%d, parent.inode_sector:%d\n\n",
     //	   self.inode_sector, parent.inode_sector);
@@ -202,6 +202,24 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   return success;
 }
 
+/*new func. returns true if entry is for a directory, 
+  false otherwise*/
+bool
+is_dir_by_inode_sector(block_sector_t s){
+  struct inode* pi = inode_open(s);
+  if(pi && pi->data.is_dir){
+    return true;
+  }
+  return false;
+}
+
+/*new func. returns true if directory is empty,
+  false otherwise*/
+bool
+is_dir_empty(block_sector_t s){
+  return false; //temporarily
+}
+
 /* Removes any entry for NAME in DIR.
    Returns true if successful, false on failure,
    which occurs only if there is no file with the given NAME. */
@@ -216,9 +234,22 @@ dir_remove (struct dir *dir, const char *name)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  if(*name == '/'){
+    /*root*/
+    goto done;
+  }
+  
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
     goto done;
+
+  if(is_dir_by_inode_sector(e.inode_sector)) {
+    // printf("\n%s IS DIRECTORY\ne.in_use:%d\n\n",
+    //	   name, e.in_use);
+    if(e.in_use) {
+      goto done;
+    }
+  }
 
   /* Open inode. */
   inode = inode_open (e.inode_sector);

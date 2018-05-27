@@ -135,6 +135,35 @@ void unpin_page(uint32_t start, unsigned size)
     }
 }
 
+
+
+
+
+static bool
+isdir(struct thread* t, int fd) {
+  struct fd_* file_d = search_fd(t, fd);
+  if(file_d) {
+    return file_d->file->inode->data.is_dir;
+  }
+  else{
+    return false;
+  }
+  
+}
+
+static int
+inumber(struct thread* t, int fd){
+  struct fd_* file_d = search_fd(t, fd);
+  if(file_d) {
+    return file_d->file->inode->sector;
+  }
+  else{
+    return 0;
+  }
+
+}
+
+
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
@@ -163,6 +192,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	check_ptr(p + 2);
 	check_ptr(p + 3);
 	int fd = *(p + 1);
+	if(isdir(t, fd)) {
+	  f->eax=-1;
+	  break;
+	}
 	const void **buffer = (p + 2);
 	unsigned size = *(p + 3);
 	check_buffer(*buffer, size);
@@ -191,7 +224,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const char** file = (const char**)(p+1);
 	unsigned initial_size = *(unsigned*)(p+2);
 	check_string(*file);
-	f->eax = filesys_create(*file, initial_size);
+	//printf("\n(SYS_CREATE) t->cwd->inode->sector:%d\n",
+	//       t->cwd->inode->sector);
+	f->eax = filesys_create(t->cwd, *file, initial_size, 0);
 	break;
       }
     case SYS_OPEN:
@@ -200,8 +235,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const char **name = p + 1;
 	check_string(*name);
 	struct file *file = filesys_open(*name);
-	if(!file)
+	//printf("(SYS_OPEN) name:%s\n", *name);
+	if(!file){
+	  //printf("(SYS_OPEN) file==NULL\n");
 	  f->eax = -1;
+	}
 	else{
 	  struct fd_* new_fd = calloc(1, sizeof(struct fd_));
 	  new_fd->fd = t->next_fd;
@@ -398,13 +436,67 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_MKDIR:
       {
 	check_string(*(p+1));
+	const char* dir_name = *(p+1);
+	if (!(*dir_name)) {
+	  f->eax=0;
+	  break;
+	}
+	
+	/*assume dir is relative*/
+	//printf("\n(SYS_MKDIR) t->cwd->inode->sector:%d\n",
+	//     t->cwd->inode->sector);
+	f->eax = filesys_create(t->cwd, dir_name, 0, 1);
+	break;
+      }
+
+    case SYS_CHDIR:
+      {
+	check_string(*(p+1));
 	const char* dir = *(p+1);
 	if (!(*dir)) {
 	  f->eax=0;
 	  break;
 	}
 
+	/*assume dir is relative*/
+	struct inode* pdir_inode;
+	if(!dir_lookup(t->cwd, dir, &pdir_inode)){
+	  f->eax=0;
+	  break;
+	}
 
+	t->cwd=dir_open(pdir_inode);
+	//printf("(SYS_CHDIR) t->cwd:%p\n", (void*)t->cwd);
+	//printf("(SYS_CHDIR) t->cwd->inode->sector:%d\n",
+	//     t->cwd->inode->sector);
+	if(!t->cwd) {
+	  f->eax=0;
+	  break;
+	}
+	else {
+	  f->eax=1;
+	  break;
+	}
+	
+      }
+
+
+    case SYS_ISDIR:
+      {
+	check_ptr(p + 1);
+	int fd = *(p + 1);
+	f->eax = isdir(t, fd);
+	break;
+
+      }
+      
+      
+    case SYS_INUMBER:
+      {
+	check_ptr(p + 1);
+	int fd = *(p + 1);
+	f->eax = inumber(t, fd);
+	break;
       }
       
     }
