@@ -32,7 +32,7 @@ struct dir_entry
   };
 
 /*new*/
-bool is_dir_by_inode_sector(block_sector_t s);
+bool is_dir_by_inode(struct inode* pi);
 /*new end*/
 
 /* Opening and closing directories. */

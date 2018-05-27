@@ -191,6 +191,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
 
   /* Write slot. */
   e.in_use = true;
+  //e.in_use = false;
+
   //e.is_dir = is_dir, - should we do this?
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
@@ -205,8 +207,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
 /*new func. returns true if entry is for a directory, 
   false otherwise*/
 bool
-is_dir_by_inode_sector(block_sector_t s){
-  struct inode* pi = inode_open(s);
+is_dir_by_inode(struct inode* pi){
   if(pi && pi->data.is_dir){
     return true;
   }
@@ -238,23 +239,26 @@ dir_remove (struct dir *dir, const char *name)
     /*root*/
     goto done;
   }
-  
+
+
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
     goto done;
-
-  if(is_dir_by_inode_sector(e.inode_sector)) {
-    // printf("\n%s IS DIRECTORY\ne.in_use:%d\n\n",
-    //	   name, e.in_use);
-    if(e.in_use) {
-      goto done;
-    }
-  }
-
+  
   /* Open inode. */
   inode = inode_open (e.inode_sector);
   if (inode == NULL)
     goto done;
+  
+  if(is_dir_by_inode(inode)) {
+    // printf("\n%s IS DIRECTORY\ne.in_use:%d\n\n",
+    //	   name, e.in_use);
+    if(inode->open_cnt > 1) {
+      goto done;
+    }
+  }
+
+  
 
   /* Erase directory entry. */
   e.in_use = false;

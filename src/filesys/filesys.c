@@ -157,7 +157,7 @@ filesys_open (const char *name)
       //printf("returning false bcs directory doesn't exist\n");
       //printf("directory:%s\n", token);
       free(path);
-      printf("FAIL because directory is not found\n");
+      //printf("FAIL because directory is not found\n");
       return NULL;
     }
     if(need_to_close_dir){
@@ -166,7 +166,7 @@ filesys_open (const char *name)
     dir = dir_open(dir_inodep);
     if (!dir) {
       free(path);
-      printf("FAIL because dir==NULL\n");
+      //printf("FAIL because dir==NULL\n");
       return NULL;
     }
   }
@@ -176,10 +176,10 @@ filesys_open (const char *name)
   //printf("\n(filesys_open) dir->inode->sector:%d\n",
   //	 dir->inode->sector);
   
-  if(*path=='/' && *file_name=='\0' && *(path+1)=='\0') {
+  if(!file_name && *path=='/') {
     /*file_name is root*/
     if (dir->inode->sector == ROOT_DIR_SECTOR) {
-      //printf("dir->inode->sector == ROOT_DIR_SECTOR\n");
+      printf("dir->inode->sector == ROOT_DIR_SECTOR\n");
       file_name = ".";
     }
     else {
@@ -216,7 +216,6 @@ filesys_remove (const char *name)
   strlcpy(path, name, strlen(name)+1);
   char* rest = path;
   char* token;
-  //struct dir* parent_dir = dir;
   bool need_to_close_dir = false;
   struct dir* dir;
   if(*name == '/') {
