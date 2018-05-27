@@ -6,30 +6,41 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 
-/* A directory. */
-struct dir 
-  {
-    struct inode *inode;                /* Backing store. */
-    off_t pos;                          /* Current position. */
-  };
 
-/* A single directory entry. */
-struct dir_entry 
-  {
-    block_sector_t inode_sector;        /* Sector number of header. */
-    char name[NAME_MAX + 1];            /* Null terminated file name. */
-    bool in_use;                        /* In use or free? */
-    /*new*/
-    bool is_dir; //true if directory, false if file
-    /*end new*/
-  };
+
+
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool
-dir_create (block_sector_t sector, size_t entry_cnt)
+dir_create (block_sector_t sector, size_t entry_cnt,
+	    block_sector_t parent_sector)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+  
+  bool success =
+    inode_create (sector, entry_cnt * sizeof (struct dir_entry), 1);
+
+  if(success) {
+    struct inode* dir_inodep = inode_open(sector);
+    struct dir_entry self, parent;
+    self.inode_sector = sector;
+    parent.inode_sector = parent_sector;
+    self.name[0]=parent.name[0]=parent.name[1]='.';
+    self.name[1]=parent.name[2]='\0';
+    self.in_use = parent.in_use = true;
+    self.is_dir = parent.is_dir = true;
+    int entry_size = sizeof (struct dir_entry);
+    //printf("(dir_create) self.inode_sector:%d, parent.inode_sector:%d\n\n",
+    //	   self.inode_sector, parent.inode_sector);
+    if(entry_size == inode_write_at(dir_inodep, &self, entry_size, 0) &&
+       entry_size == inode_write_at(dir_inodep, &parent,
+				    entry_size, entry_size))
+    ;
+    else success = false;
+
+    inode_close(dir_inodep);
+  }
+  return success;
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -95,6 +106,9 @@ static bool
 lookup (const struct dir *dir, const char *name,
         struct dir_entry *ep, off_t *ofsp) 
 {
+  //printf("\n(lookup) Search for entry with name:%s\n", name);
+  //printf("in dir with inode at sector:%d\n",
+  //	 dir->inode->sector);
   struct dir_entry e;
   size_t ofs;
   
@@ -102,7 +116,8 @@ lookup (const struct dir *dir, const char *name,
   ASSERT (name != NULL);
 
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
-       ofs += sizeof e) 
+       ofs += sizeof e) {
+    //printf("entry.name:%s\n", e.name);
     if (e.in_use && !strcmp (name, e.name)) 
       {
         if (ep != NULL)
@@ -111,6 +126,7 @@ lookup (const struct dir *dir, const char *name,
           *ofsp = ofs;
         return true;
       }
+  }
   return false;
 }
 
@@ -144,6 +160,8 @@ dir_lookup (const struct dir *dir, const char *name,
 bool
 dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
 {
+  //  printf("(dir_add) dir->inode->sector:%d, name:%s, inode_sector:%d\n",
+  //	 dir->inode->sector, name, inode_sector);
   struct dir_entry e;
   off_t ofs;
   bool success = false;
@@ -173,11 +191,14 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
 
   /* Write slot. */
   e.in_use = true;
+  //e.is_dir = is_dir, - should we do this?
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
  done:
+  //lookup (dir, name, NULL, NULL);//for dbg, it prints out entries
+  //until finding "name"
   return success;
 }
 

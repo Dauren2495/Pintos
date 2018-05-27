@@ -4,6 +4,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
+#include "filesys/directory.h"
 
 static struct file *free_map_file;   /* Free map file. */
 static struct bitmap *free_map;      /* Free map, one bit per sector. */
@@ -75,7 +76,7 @@ free_map_create (void)
   /* Create inode. */
   //printf("\n\nFREE_MAP_SECTOR: %d, bitmap_file_size: %d\n\n",
   //	 FREE_MAP_SECTOR, bitmap_file_size(free_map));
-  if (!inode_create (FREE_MAP_SECTOR, bitmap_file_size (free_map)))
+  if (!inode_create (FREE_MAP_SECTOR, bitmap_file_size (free_map),0))
     PANIC ("free map creation failed");
 
   /* Write bitmap to file. */

@@ -232,9 +232,9 @@ allocate_sectors_d_indirectly(int cnt_d_indirect,
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
 bool
-inode_create (block_sector_t sector, off_t length)
+inode_create (block_sector_t sector, off_t length, bool is_dir)
 {
-  //printf("\n\nIn INODE_CREATE\n\n");
+  //printf("In INODE_CREATE\n");
   struct inode_disk *disk_inode = NULL;
   bool success = false;
 
@@ -249,21 +249,8 @@ inode_create (block_sector_t sector, off_t length)
     size_t sectors = bytes_to_sectors (length);
     disk_inode->length = length;
     disk_inode->magic = INODE_MAGIC;
-    /*
-      if (free_map_allocate (sectors, &disk_inode->start)) 
-      {
-      block_write (fs_device, sector, disk_inode);
-      if (sectors > 0) 
-      {
-      static char zeros[BLOCK_SECTOR_SIZE];
-      size_t i;
-              
-      for (i = 0; i < sectors; i++) 
-      block_write (fs_device, disk_inode->start + i, zeros);
-      }
-      success = true; 
-      }
-    */
+    disk_inode->is_dir = is_dir;
+    
     
     size_t max_direct_cnt = sizeof(disk_inode->direct)/sizeof(block_sector_t);
     /*number of sectors pointed directly, indirectly, 
@@ -317,6 +304,7 @@ inode_create (block_sector_t sector, off_t length)
     }
     
     block_write (fs_device, sector, disk_inode);
+    
     success = true;
     //printf("INODE_CREATE SUCCESS\n");
   }

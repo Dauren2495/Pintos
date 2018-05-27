@@ -16,13 +16,14 @@ struct inode_disk
 
     /* NEW: */
     //pointers to sectors where content is located
-    block_sector_t direct[124]; //size of whole struct must be 128
+    block_sector_t direct[123]; //size of whole struct must be 128*4 bytes
     //pointers to pointers
     block_sector_t indirect;
     //pointers to pointers to pointers
     block_sector_t d_indirect; 
     unsigned magic;
     off_t length;
+    bool is_dir; //true if directory, false if file
   };
 struct inode 
   {
@@ -39,7 +40,7 @@ struct inode
 struct bitmap;
 
 void inode_init (void);
-bool inode_create (block_sector_t, off_t);
+bool inode_create (block_sector_t, off_t, bool);
 struct inode *inode_open (block_sector_t);
 struct inode *inode_reopen (struct inode *);
 block_sector_t inode_get_inumber (const struct inode *);
