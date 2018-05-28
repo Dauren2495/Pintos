@@ -475,28 +475,86 @@ syscall_handler (struct intr_frame *f UNUSED)
       {
 	check_ptr(p+1);
 	check_string(*(p+1));
-	const char* dir = *(p+1);
-	if (!(*dir)) {
+	const char* full_name = *(p+1);
+	char* short_name;
+	
+	if (!(*full_name)) {
 	  f->eax=0;
 	  break;
 	}
 
-	
-	
+	struct dir* pdir;
+	/*parsing dir_name*/
+	char* path = malloc(strlen(full_name)+1);
+	strlcpy(path, full_name, strlen(full_name)+1);
+	char* rest = path;
+	char* token;
+	if(*full_name == (char)'/') {
+	  pdir = dir_open_root();
+	}
+	else {
+	  pdir = thread_current()->cwd;
+	}
+	for( token = strtok_r(path, "/", &rest); token!=NULL;
+	     token = strtok_r(NULL, "/", &rest) ) {
+	  if ((*rest) == '\0') {
+	    break;
+	  }
 
-	
-	/*assume dir is relative*/
+	  struct inode* dir_inodep;
+	  if(!dir_lookup(pdir, token, &dir_inodep)){
+	    free(path);
+	    f->eax=0;
+	    break;
+	  }
+	  /*
+	  if(*pneed_to_close_dir){
+	    dir_close(*ppdir);
+	  }
+	  */
+	  pdir = dir_open(dir_inodep);
+	  if (!pdir) {
+	    free(path);
+	    goto fail;
+	  }
+	}
+	if(!token) {
+	  short_name=NULL;
+	}
+	else{
+	  short_name = calloc(1, strlen(token)+1);
+	  strlcpy(short_name, token, strlen(token)+1);
+	}
+	free(path);
+
+	if(!short_name && *full_name=='/') {
+	  /*full_name is root*/
+	  if (pdir->inode->sector == ROOT_DIR_SECTOR) {
+	    //printf("dir->inode->sector == ROOT_DIR_SECTOR\n");
+	    short_name = malloc(strlen(".")+1);
+	    strlcpy(short_name, ".", strlen(".")+1);
+	  }
+	  else {
+	    f->eax=0;
+	    break;
+	  }
+	}
+
+	if(!pdir) {
+	  free(short_name);
+	  f->eax=0;
+	  break;
+	}
+	/*assume name is relative*/
 	struct inode* pdir_inode;
-	if(!dir_lookup(t->cwd, dir, &pdir_inode)){
+	if(!dir_lookup(pdir, short_name, &pdir_inode)){
 	  f->eax=0;
 	  break;
 	}
 
 	t->cwd=dir_open(pdir_inode);
-	//printf("(SYS_CHDIR) t->cwd:%p\n", (void*)t->cwd);
-	//printf("(SYS_CHDIR) t->cwd->inode->sector:%d\n",
-	//     t->cwd->inode->sector);
 	if(!t->cwd) {
+	fail:
 	  f->eax=0;
 	  break;
 	}

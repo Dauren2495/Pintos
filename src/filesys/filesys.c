@@ -168,10 +168,10 @@ filesys_open (const char *name)
     /*file_name is root*/
     if (pdir->inode->sector == ROOT_DIR_SECTOR) {
       //printf("dir->inode->sector == ROOT_DIR_SECTOR\n");
+      file_name = malloc(strlen(".")+1);
       strlcpy(file_name, ".", strlen(".")+1);
     }
     else {
-      free(file_name);
       return NULL;
     }
   }
