@@ -27,7 +27,7 @@ dir_create (block_sector_t sector, size_t entry_cnt,
     parent.inode_sector = parent_sector;
     self.name[0]=parent.name[0]=parent.name[1]='.';
     self.name[1]=parent.name[2]='\0';
-    //self.in_use = parent.in_use = true;
+    self.in_use = parent.in_use = true;
     //self.is_dir = parent.is_dir = true;
     int entry_size = sizeof (struct dir_entry);
     //printf("(dir_create) self.inode_sector:%d, parent.inode_sector:%d\n\n",

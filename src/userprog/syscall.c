@@ -137,8 +137,6 @@ void unpin_page(uint32_t start, unsigned size)
 
 
 
-
-
 static bool
 isdir(struct thread* t, int fd) {
   struct fd_* file_d = search_fd(t, fd);
@@ -162,6 +160,29 @@ inumber(struct thread* t, int fd){
   }
 
 }
+
+static bool
+readdir(struct thread *t, int fd, char *name) {
+  struct fd_* file_d = search_fd(t, fd);
+  if (file_d && isdir(t, fd)) {
+    struct dir_entry e;
+    int bytes_read;
+    while(bytes_read = file_read(file_d->file, &e, sizeof e)) {
+      if (bytes_read!=sizeof e) {
+	return false;
+      }
+      if(!e.in_use
+	 || !strcmp(e.name,".")
+	 || !strcmp(e.name,"..")) {
+	continue;
+      }
+      strlcpy(name, e.name, sizeof(e.name));
+      return true;
+    }
+  }
+  return false;
+}
+
 
 
 static void
@@ -226,7 +247,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	check_string(*file);
 	//printf("\n(SYS_CREATE) t->cwd->inode->sector:%d\n",
 	//       t->cwd->inode->sector);
-	f->eax = filesys_create(t->cwd, *file, initial_size, 0);
+	f->eax = filesys_create(*file, initial_size, 0);
 	break;
       }
     case SYS_OPEN:
@@ -435,6 +456,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_MKDIR:
       {
+	check_ptr(p+1);
 	check_string(*(p+1));
 	const char* dir_name = *(p+1);
 	if (!(*dir_name)) {
@@ -445,12 +467,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 	/*assume dir is relative*/
 	//printf("\n(SYS_MKDIR) t->cwd->inode->sector:%d\n",
 	//     t->cwd->inode->sector);
-	f->eax = filesys_create(t->cwd, dir_name, 0, 1);
+	f->eax = filesys_create(dir_name, 0, 1);
 	break;
       }
 
     case SYS_CHDIR:
       {
+	check_ptr(p+1);
 	check_string(*(p+1));
 	const char* dir = *(p+1);
 	if (!(*dir)) {
@@ -458,6 +481,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  break;
 	}
 
+	
+	
+
+	
 	/*assume dir is relative*/
 	struct inode* pdir_inode;
 	if(!dir_lookup(t->cwd, dir, &pdir_inode)){
@@ -496,6 +523,17 @@ syscall_handler (struct intr_frame *f UNUSED)
 	check_ptr(p + 1);
 	int fd = *(p + 1);
 	f->eax = inumber(t, fd);
+	break;
+      }
+
+    case SYS_READDIR:
+      {
+	check_ptr(p+1);
+	check_ptr(p+2);
+	check_string(*(p+2));
+	int fd = *(p+1);
+	char *name = *(p+2);
+	f->eax = readdir(t, fd, name);
 	break;
       }
       
