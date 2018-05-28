@@ -196,10 +196,11 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-
+  //printf("REACHED filesys_remove %s\n", name);
   bool need_to_close_dir;
   struct dir* pdir; char* file_name;
   if(!get_dir_and_name(name, &pdir, &file_name, &need_to_close_dir)){
+    //printf("(filesys_remove) FAILED to parse\n");
     return false;
   }
 
@@ -209,8 +210,10 @@ filesys_remove (const char *name)
     //printf("cannot remove root\n");
     success = false;
   }
+  //printf("success1:%d\n", success);
   success = success && (pdir != NULL) && dir_remove (pdir, file_name);
-  
+  //printf("pdir!=NULL:%d, file_name:%s, success2:%d\n",
+  //	 pdir!=NULL, file_name, success);
   if(pdir && need_to_close_dir) {
     dir_close (pdir); 
   }

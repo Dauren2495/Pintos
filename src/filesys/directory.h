@@ -33,6 +33,7 @@ struct dir_entry
 
 /*new*/
 bool is_dir_by_inode(struct inode* pi);
+bool is_dir_empty_by_inode(struct inode* pi);
 /*new end*/
 
 /* Opening and closing directories. */

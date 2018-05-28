@@ -325,6 +325,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const char **file = p + 1;
 	check_string(*file);
 	f->eax = filesys_remove(*file);
+	//printf("EXITED filesys_remove, f->eax:%d\n", f->eax);
 	break;
       }
     case SYS_SEEK:
@@ -490,6 +491,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	char* rest = path;
 	char* token;
 	if(*full_name == (char)'/') {
+	  dir_close(thread_current()->cwd);
 	  pdir = dir_open_root();
 	}
 	else {
@@ -503,15 +505,16 @@ syscall_handler (struct intr_frame *f UNUSED)
 
 	  struct inode* dir_inodep;
 	  if(!dir_lookup(pdir, token, &dir_inodep)){
+	    printf("FAIL A\n");
 	    free(path);
 	    f->eax=0;
 	    break;
 	  }
-	  /*
-	  if(*pneed_to_close_dir){
-	    dir_close(*ppdir);
+	  
+	  if(!strcmp(token,"..")){
+	    dir_close(pdir);
 	  }
-	  */
+	  
 	  pdir = dir_open(dir_inodep);
 	  if (!pdir) {
 	    free(path);
@@ -522,7 +525,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  short_name=NULL;
 	}
 	else{
-	  short_name = calloc(1, strlen(token)+1);
+	  short_name = malloc(strlen(token)+1);
 	  strlcpy(short_name, token, strlen(token)+1);
 	}
 	free(path);
@@ -552,9 +555,16 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  break;
 	}
 
+	//if(!strcmp(short_name, "..")){
+	  //printf("SHORT_NAME is ..\n");
+	  dir_close(t->cwd);
+	  //printf("CLOSED t->cwd\n");
+	  //}
 	t->cwd=dir_open(pdir_inode);
+	//printf("OPENED pdir_inode\n");
 	if(!t->cwd) {
 	fail:
+	  //printf("FAIL\n");
 	  f->eax=0;
 	  break;
 	}

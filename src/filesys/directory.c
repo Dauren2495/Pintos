@@ -217,8 +217,33 @@ is_dir_by_inode(struct inode* pi){
 /*new func. returns true if directory is empty,
   false otherwise*/
 bool
-is_dir_empty(block_sector_t s){
-  return false; //temporarily
+is_dir_empty_by_inode(struct inode* pi){
+  struct dir* pdir = dir_open(pi);
+  pdir->pos=0;
+  char name[NAME_MAX+1];
+  if(!dir_readdir(pdir, name) || strcmp(name,".")){
+    printf("(is_dir_empty) UNEXPECTED ERROR 1\n");
+    dir_close(pdir);
+    return false;
+  }
+  if(!dir_readdir(pdir, name) || strcmp(name,"..")){
+    printf("(is_dir_empty) UNEXPECTED ERROR 2\n");
+    dir_close(pdir);
+    return false;
+  }
+
+  while(dir_readdir(pdir, name)) {
+    struct dir_entry e;
+    inode_read_at(pdir->inode, &e, sizeof e, pdir->pos - sizeof(e));
+    if (e.in_use) {
+      //printf("name of entry in use:%s\n", e.name);
+      dir_close(pdir);
+      return false;
+    }
+  }
+  dir_close(pdir);
+  return true;
+  
 }
 
 /* Removes any entry for NAME in DIR.
@@ -241,21 +266,34 @@ dir_remove (struct dir *dir, const char *name)
   }
 
 
+  
   /* Find directory entry. */
-  if (!lookup (dir, name, &e, &ofs))
+  if (!lookup (dir, name, &e, &ofs)){
+    //printf("dir_remove: lookup returned false\n");
     goto done;
+  }
   
   /* Open inode. */
   inode = inode_open (e.inode_sector);
-  if (inode == NULL)
+  if (inode == NULL) {
+    //printf("inode==NULL\n");
     goto done;
+  }
   
   if(is_dir_by_inode(inode)) {
     // printf("\n%s IS DIRECTORY\ne.in_use:%d\n\n",
     //	   name, e.in_use);
     if(inode->open_cnt > 1) {
+      //printf("inode->open_cnt >1\n");
       goto done;
     }
+
+    if(!is_dir_empty_by_inode(inode)) {
+      //printf("DIR is NOT EMPTY\n");
+      goto done;
+    }
+    //printf("DIR is EMPTY\n");
+    
   }
 
   
