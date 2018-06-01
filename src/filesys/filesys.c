@@ -25,12 +25,13 @@ filesys_init (bool format)
 
   inode_init ();
   free_map_init ();
-  thread_current()->cwd  = dir_open_root();
   
   if (format) 
     do_format ();
-
+  
   free_map_open ();
+
+  thread_current()->cwd  = dir_open_root();
 }
 
 /* Shuts down the file system module, writing any unwritten data

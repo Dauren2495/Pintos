@@ -48,6 +48,8 @@ static bool do_write (int fd, const char *buffer, int size, bool *write_error);
 static bool
 make_tar_archive (const char *archive_name, char *files[], size_t file_cnt) 
 {
+  //printf("REACHED MAKE_TAR_ARCHIVE\n");
+  //printf("archive_name:%s\n", archive_name);
   static const char zeros[512];
   int archive_fd;
   bool success = true;
@@ -60,28 +62,34 @@ make_tar_archive (const char *archive_name, char *files[], size_t file_cnt)
       return false;
     }
   archive_fd = open (archive_name);
+  //printf("(MAKE_TAR_ARCHIVE) archive_fd:%d\n", archive_fd);
   if (archive_fd < 0)
     {
       printf ("%s: open failed\n", archive_name);
       return false;
     }
 
+  //printf("file_cnt:%d\n", file_cnt);
   for (i = 0; i < file_cnt; i++) 
     {
       char file_name[128];
       
       strlcpy (file_name, files[i], sizeof file_name);
+      //printf("\tfiles[%d]:%s\n", i, file_name);
       if (!archive_file (file_name, sizeof file_name,
-                         archive_fd, &write_error))
+                         archive_fd, &write_error)){
+	printf("archive_file returned 0\n");
         success = false;
+      }
     }
 
   if (!do_write (archive_fd, zeros, 512, &write_error)
-      || !do_write (archive_fd, zeros, 512, &write_error)) 
+      || !do_write (archive_fd, zeros, 512, &write_error)){
+    printf("do_write failed\n");
     success = false;
-
+  }
   close (archive_fd);
-
+  //printf("(make_tar_archive) returning success:%d\n", success);
   return success;
 }
 
@@ -96,16 +104,23 @@ archive_file (char file_name[], size_t file_name_size,
 
       if (inumber (file_fd) != inumber (archive_fd)) 
         {
-          if (!isdir (file_fd))
+          if (!isdir (file_fd)){
             success = archive_ordinary_file (file_name, file_fd,
                                              archive_fd, write_error);
-          else
+	    //printf("(archive_file) archive_ordinary_file(%s,...)\n",
+	    //		   file_name);
+	  }
+          else {
             success = archive_directory (file_name, file_name_size, file_fd,
-                                         archive_fd, write_error);      
+                                         archive_fd, write_error);
+	    //printf("(archive_file) archive_directory(%s,...)\n",
+	    //	   file_name);
+	  }
         }
       else
         {
           /* Nothing to do: don't try to archive the archive file. */
+	  //printf("(archive_file) nothing to do\n");
           success = true;
         }
   
