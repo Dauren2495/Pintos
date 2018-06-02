@@ -245,6 +245,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const char** file = (const char**)(p+1);
 	unsigned initial_size = *(unsigned*)(p+2);
 	check_string(*file);
+	if(**file == '\0'){
+	  f->eax=0;
+	  break;
+	}
 	//printf("\n(SYS_CREATE) t->cwd->inode->sector:%d\n",
 	//       t->cwd->inode->sector);
 	f->eax = filesys_create(*file, initial_size, 0);
@@ -255,6 +259,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	check_ptr(p + 1);
 	const char **name = p + 1;
 	check_string(*name);
+	if(**name=='\0'){
+	  f->eax=-1;
+	  break;
+	}
 	struct file *file = filesys_open(*name);
 	//printf("(SYS_OPEN) name:%s\n", *name);
 	if(!file){
