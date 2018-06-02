@@ -29,13 +29,51 @@ Abilmansur Zhumabekov <mansur@kaist.ac.kr>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct inode_disk
+    {
+    
+         //pointers to sectors where content is located
+    +    block_sector_t direct[123];
+    
+         //pointer to pointers
+    +    block_sector_t indirect;
+
+         //pointer to pointers to pointers
+    +    block_sector_t d_indirect;
+
+    	 unsigned magic;
+	 off_t length;
+	 
+    +    bool is_dir; //true if directory, false if file
+    };
+
+struct thread
+    {
+    //pointer to the current working directory of the thread
+    +	struct dir* cwd 
+    }
+
+    
+
 >> A2: What is the maximum size of a file supported by your inode
 >> structure?  Show your work.
+
+(123+128+128*128)(sectors)*512(bytes/sector) = 8517120 bytes = 8317.5 KB
 
 ---- SYNCHRONIZATION ----
 
 >> A3: Explain how your code avoids a race if two processes attempt to
 >> extend a file at the same time.
+struct inode {
+    +  struct lock extension_lock;
+}
+
+in inode_write_at():
+Acquire the extension_lock before checking inode->length;
+If needed, extend file/directory pointed by inode;
+Release the lock;
+
+
 
 >> A4: Suppose processes A and B both have file F open, both
 >> positioned at end-of-file.  If A reads and B writes F at the same
@@ -44,12 +82,16 @@ Abilmansur Zhumabekov <mansur@kaist.ac.kr>
 >> nonzero data, A is not allowed to see all zeros.  Explain how your
 >> code avoids this race.
 
+???????????????????????????????????
+
 >> A5: Explain how your synchronization design provides "fairness".
 >> File access is "fair" if readers cannot indefinitely block writers
 >> or vice versa.  That is, many processes reading from a file cannot
 >> prevent forever another process from writing the file, and many
 >> processes writing to a file cannot prevent another process forever
 >> from reading the file.
+
+???????????????????????????????????
 
 ---- RATIONALE ----
 
@@ -58,6 +100,18 @@ Abilmansur Zhumabekov <mansur@kaist.ac.kr>
 >> indirect blocks?  If not, why did you choose an alternative inode
 >> structure, and what advantages and disadvantages does your
 >> structure have, compared to a multilevel index?
+
+Our inode structure is a multilevel index.
+#doubly_indirect - 1
+#indirect - 1
+#direct - 123 - all remaining 4-byte slots in the inode's sector,
+	      	3 other slots store other information.
+this structure was chosen because most files have small size
+much less than 60 kB (< 123*512/1024=61.5KB).
+If only doubly indirect indexing was implemented -
+addressing would have been slower for most files.
+Indirect addressing allows for files in range (61.5KB - 125.5KB)
+to be addressed less slowly than with doubly indirect indexing.
 
 			    SUBDIRECTORIES
 			    ==============

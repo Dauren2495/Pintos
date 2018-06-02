@@ -3,10 +3,12 @@
 #include <debug.h>
 #include <round.h>
 #include <string.h>
+#include <stdio.h>
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -40,37 +42,49 @@ byte_to_sector (const struct inode *inode, off_t pos)
     
     if(pos < BLOCK_SECTOR_SIZE * direct_cnt_max){
       sector = *(inode->data.direct + pos/BLOCK_SECTOR_SIZE) ;
-      if (sector==NO_SECTOR)
+      if (sector==NO_SECTOR) {
+	printf("(byte_to_sector)error A\n");
 	return -1;
+      }
       return sector;
     }
     
 
     else if(pos < BLOCK_SECTOR_SIZE * (direct_cnt_max+128)){
       static block_sector_t buf[128];
-      if (inode->data.indirect == NO_SECTOR)
+      if (inode->data.indirect == NO_SECTOR){
+	printf("(byte_to_sector)error B\n");
 	return -1;
+      }
       block_read(fs_device, inode->data.indirect, buf);
       sector = *(buf+pos/BLOCK_SECTOR_SIZE-direct_cnt_max);
-      if (sector==NO_SECTOR)
+      if (sector==NO_SECTOR) {
+	printf("(byte_to_sector)error C\n");
 	return -1;
+      }
       return sector;
     }
 
     else if(pos < BLOCK_SECTOR_SIZE * (direct_cnt_max+128+128*128)){
-      if (inode->data.d_indirect == NO_SECTOR)
+      if (inode->data.d_indirect == NO_SECTOR){
+	printf("(byte_to_sector)error D\n");
 	return -1;
+      }
       static block_sector_t d_indirect_buf[128];
       block_read(fs_device, inode->data.d_indirect, d_indirect_buf);
       size_t indirect_index = (pos/BLOCK_SECTOR_SIZE - direct_cnt_max-128)/128;
       ASSERT(indirect_index<128);
       static block_sector_t indirect_buf[128];
-      if (d_indirect_buf[indirect_index] == NO_SECTOR)
+      if (d_indirect_buf[indirect_index] == NO_SECTOR){
+	printf("(byte_to_sector)error E\n");
 	return -1;
+      }
       block_read(fs_device, d_indirect_buf[indirect_index], indirect_buf);
       sector = indirect_buf[(pos/BLOCK_SECTOR_SIZE - direct_cnt_max-128)%128];
-      if (sector == NO_SECTOR)
+      if (sector == NO_SECTOR){
+	printf("(byte_to_sector)error F\n");
 	return -1;
+      }
       return sector;
     }
     else
@@ -78,8 +92,10 @@ byte_to_sector (const struct inode *inode, off_t pos)
       
   }
  
-  else
+  else {
+    //printf("(byte_to_sector)error G\n");
     return -1;
+  }
 }
 
 /* List of open inodes, so that opening a single inode twice
@@ -200,7 +216,7 @@ allocate_sectors_d_indirectly(int cnt_d_indirect,
   if (j) {
     int left_over = 128-j;
     left_over = left_over>cnt_d_indirect?cnt_d_indirect:left_over;
-    if (!allocate_sectors_indirectly(left_over, buf+i-1, j))
+    if (!allocate_sectors_indirectly(left_over, buf+i, j))
       return false;
     cnt_d_indirect-=left_over;
     ASSERT(cnt_d_indirect >= 0);
@@ -350,6 +366,10 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+  /*new*/
+  lock_init(&inode->extension_lock);
+  lock_init(&inode->entries_lock);
+  /*end new*/
   block_read (fs_device, inode->sector, &inode->data);
   return inode;
 }
@@ -529,45 +549,55 @@ inode_extend(struct inode* inode, int amount ) {
 /* 	 max_direct, old_sectors, new_sectors); */
 
   if(new_sectors+old_sectors > max_direct + 128 + 128*128) {
+    printf("(inode_extend) ERROR:too many sectors are inquired\n");
     return false;
   }
   
   if (new_sectors > 0 && old_sectors < max_direct) {
+    //printf("(inode_extend)extending directly\n");
     /*we can allocate some sectors directly*/
     int new_direct = max_direct - old_sectors;
     new_direct = new_direct > new_sectors ? new_sectors : new_direct;
     //    printf("new_direct:%d\n", new_direct);
-    if(!allocate_sectors_directly(new_direct, i_dp->direct+old_sectors))
+    if(!allocate_sectors_directly(new_direct, i_dp->direct+old_sectors)){
+      printf("ERROR:failed to allocate_sectors_directly\n");
       return false;
-
+    }
     new_sectors -= new_direct;
     ASSERT(new_sectors>=0);
   }
 
   if (new_sectors > 0 && old_sectors < max_direct + 128) {
     /*we can allocate some sectors indirectly*/
+    //printf("(inode_extend)extending INdirectly\n");
     int old_indirect = old_sectors - max_direct;
     old_indirect = old_indirect > 0 ? old_indirect : 0;
     int new_indirect = 128 - old_indirect;
     new_indirect = new_indirect>new_sectors?new_sectors:new_indirect;
     if(!allocate_sectors_indirectly(new_indirect, &i_dp->indirect,
-				    old_indirect))
+				    old_indirect)) {
+      printf("ERROR: failed to allocate_sectors_indirectly\n");
       return false;
-
+    }
     new_sectors -= new_indirect;
     ASSERT(new_sectors>=0);
   }
 
   if(new_sectors > 0 && old_sectors < max_direct+128+128*128) {
     /*we can allocate some sectors doubly indirectly*/
+    //printf("(inode_extend)extending DOUBLY_INdirectly\n");
     int old_d_indirect = old_sectors - max_direct - 128;
     old_d_indirect = old_d_indirect > 0 ? old_d_indirect : 0;
     int new_d_indirect = 128*128 - old_d_indirect;
     new_d_indirect = (new_d_indirect > new_sectors ?
 		      new_sectors : new_d_indirect);
+    //printf("\told_d_indirect:%d, new_d_indirect:%d\n",
+    //	   old_d_indirect, new_d_indirect);
     if(!allocate_sectors_d_indirectly(new_d_indirect,
-				      &i_dp->d_indirect, old_d_indirect))
+				      &i_dp->d_indirect, old_d_indirect)){
+      printf("ERROR: failed to allocate_sectors_d_indirectly\n");
       return false;
+    }
     new_sectors -= new_d_indirect;
     ASSERT(new_sectors==0);
   }
@@ -588,6 +618,7 @@ off_t
 inode_write_at (struct inode *inode, const void *buffer_, off_t size,
                 off_t offset) 
 {
+  
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
   uint8_t *bounce = NULL;
@@ -595,23 +626,32 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   if (inode->deny_write_cnt)
     return 0;
 
+
+  lock_acquire(&inode->extension_lock);
   int length = inode->data.length;
+  
+  //printf("(inode_write_at) size:%d, offset:%d, cur. length:%d\n",
+  //	 size, offset, length);
+
   ASSERT(length>=0);
   if (offset+size > length) {
     /*Extend file*/
-    if(!inode_extend(inode, offset + size - length))
+    if(!inode_extend(inode, offset + size - length)) {
+      printf("(inode_write_at) ERROR: failed to inode_extend\n");
+      lock_release(&inode->extension_lock);
       return 0;
-    
+    }
   }
+  lock_release(&inode->extension_lock);
 
-  //printf("\nIN WRITE, cur len:%d, offset:%d, size:%d\n",
-  //	 length, offset, size);
+  // printf("\n(inode_write_at), cur len, possibly after extension:%d\n", inode->data.length);
   
   while (size > 0) 
     {
      
       /* Sector to write, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (inode, offset);
+      ASSERT(sector_idx!=(unsigned)-1);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;

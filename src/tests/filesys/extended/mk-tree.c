@@ -35,6 +35,7 @@ make_tree (int at, int bt, int ct, int dt)
   quiet = false;
 
   snprintf (try, sizeof try, "/%d/%d/%d/%d", 0, bt - 1, 0, dt - 1);
+  //snprintf (try, sizeof try, "/%d/%d/%d/%d", 0, bt - 2, 0, dt - 1);
   CHECK ((fd = open (try)) > 1, "open \"%s\"", try);
   msg ("close \"%s\"", try);
   close (fd);

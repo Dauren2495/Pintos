@@ -5,6 +5,7 @@
 #include "filesys/off_t.h"
 #include "devices/block.h"
 #include "lib/kernel/list.h"
+#include "threads/synch.h"
 
 struct inode_disk
   {
@@ -33,6 +34,12 @@ struct inode
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /* Inode content. */
+    /*new*/
+    struct lock extension_lock; /*needed to avoid race 
+during extension of a file/directory pointed by this inode */
+    struct lock entries_lock; /*needed against races occuring
+during removal of a file from or addition to a directory*/
+    /*end new*/
   };
 
 

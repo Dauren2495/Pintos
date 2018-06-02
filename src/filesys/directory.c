@@ -173,10 +173,12 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   if (*name == '\0' || strlen (name) > NAME_MAX)
     return false;
 
-  /* Check that NAME is not in use. */
-  if (lookup (dir, name, NULL, NULL))
-    goto done;
 
+  lock_acquire(&dir->inode->entries_lock);
+  /* Check that NAME is not in use. */
+  if (lookup (dir, name, NULL, NULL)) 
+    goto done;
+  
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
      current end-of-file.
@@ -191,14 +193,14 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
 
   /* Write slot. */
   e.in_use = true;
-  //e.in_use = false;
 
-  //e.is_dir = is_dir, - should we do this?
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
+  
  done:
+  lock_release(&dir->inode->entries_lock);
   //lookup (dir, name, NULL, NULL);//for dbg, it prints out entries
   //until finding "name"
   return success;
@@ -260,6 +262,8 @@ dir_remove (struct dir *dir, const char *name)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  lock_acquire(&dir->inode->entries_lock);
+  
   if(*name == '/'){
     /*root*/
     goto done;
@@ -308,6 +312,7 @@ dir_remove (struct dir *dir, const char *name)
   success = true;
 
  done:
+  lock_release(&dir->inode->entries_lock);
   inode_close (inode);
   return success;
 }
