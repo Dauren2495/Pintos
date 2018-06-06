@@ -41,19 +41,9 @@ struct inode_disk
          //pointer to pointers to pointers
     +    block_sector_t d_indirect;
 
-    	 unsigned magic;
-	 off_t length;
-	 
-    +    bool is_dir; //true if directory, false if file
     };
 
-struct thread
-    {
-    //pointer to the current working directory of the thread
-    +	struct dir* cwd 
-    }
 
-    
 
 >> A2: What is the maximum size of a file supported by your inode
 >> structure?  Show your work.
@@ -82,7 +72,11 @@ Release the lock;
 >> nonzero data, A is not allowed to see all zeros.  Explain how your
 >> code avoids this race.
 
-???????????????????????????????????
+read is not done if position exceeds length of a file;
+length of file is incremented only after a write that
+sets offset beyond length of file;
+length of file is incremented, if needed, after each block_write,
+so A can read all, part, or none of what B writes.
 
 >> A5: Explain how your synchronization design provides "fairness".
 >> File access is "fair" if readers cannot indefinitely block writers
@@ -91,7 +85,14 @@ Release the lock;
 >> processes writing to a file cannot prevent another process forever
 >> from reading the file.
 
-???????????????????????????????????
+1) if all processes have same priority, then they are scheduled
+in round robin.
+2) read can be accomplished after partial write
+3) write can be accomplished after partial read
+locks are only acquired when checking if file extension is needed or not,
+and when directory entries are scanned.
+Only writes and reads of a single block are atomic.
+
 
 ---- RATIONALE ----
 
@@ -122,10 +123,39 @@ to be addressed less slowly than with doubly indirect indexing.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct inode_disk {
+
+       +    bool is_dir; //true if directory, false if file
+
+}
+
+struct thread
+    {
+    //pointer to the current working directory of the thread
+    +	struct dir* cwd 
+    }
+
+    
+
 ---- ALGORITHMS ----
 
 >> B2: Describe your code for traversing a user-specified path.  How
 >> do traversals of absolute and relative paths differ?
+
+if path starts with '/', it is considered to be absolute,
+otherwise - relative.
+
+When path is absolute - root directory is opened,
+it is closed when next directory in the path is found and opened,
+which is closed when next directory in the path is found and opened,
+and so on.
+
+When path is relative -  current working directory is a starting point,
+which is by itself a pointer to an opened directory.
+
+in both cases strtok_r is used.
+
+
 
 ---- SYNCHRONIZATION ----
 
@@ -134,15 +164,39 @@ to be addressed less slowly than with doubly indirect indexing.
 >> should succeed, as should only one of two simultaneous attempts to
 >> create a file with the same name, and so on.
 
+each struct inode has a struct lock member called 'entries_lock';
+it is acquired inside dir_add() and dir_remove()
+before doing lookup,
+and released in the end of both functions
+
 >> B5: Does your implementation allow a directory to be removed if it
 >> is open by a process or if it is in use as a process's current
 >> working directory?  If so, what happens to that process's future
 >> file system operations?  If not, how do you prevent it?
 
+our implementation does NOT allow a directlry to be removed if
+it is open by a process or if it is in use as a process's current
+working directory.
+Before removal, we check directory's inode's open_cnt.
+If it is greater than 1, then it means it is open by some other
+process. For a directory to be cwd of some process - it needs
+to be opened for that purpose.
+If open_cnt is 1 - it means that inode was open just to delete
+the directory, so we delete it in that case.
+
 ---- RATIONALE ----
 
 >> B6: Explain why you chose to represent the current directory of a
 >> process the way you did.
+
+it was not hard to implement.
+we do not allow removal of a directory when it is a cwd of some process
+or if it is opened by some process.
+for a directory to be a cwd - it needs to be open, otherwise
+there will be not struct dir*.
+So when we make sure that directory is not open by some process,
+we also make sure that it is not a cwd of some process -
+which means we do not need to write extra code.
 
 			     BUFFER CACHE
 			     ============

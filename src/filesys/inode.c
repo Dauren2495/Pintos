@@ -699,6 +699,11 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       size -= chunk_size;
       offset += chunk_size;
       bytes_written += chunk_size;
+      
+      if(inode->data.length < offset) {
+	inode->data.length = offset;
+	block_write(fs_device, inode->sector, &inode->data);
+      }
     }
   free (bounce);
   //printf("\nRETURNING from INODE_WRITE_AT\n\n");
